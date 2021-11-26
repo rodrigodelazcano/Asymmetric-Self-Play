@@ -11,7 +11,6 @@ import gym
 import gym.spaces as spaces
 import numpy as np
 
-from robogym.goal.goal_generator import GoalGenerator
 from robogym.mujoco.modifiers.base import Modifier
 from robogym.mujoco.simulation_interface import SimulationInterface
 from robogym.mujoco.warning_buffer import MjWarningBuffer
@@ -29,7 +28,6 @@ from robogym.randomization.sim import SimulationRandomizer
 from robogym.robot.robot_interface import Robot
 from robogym.robot_exception import RobotException
 from robogym.utils.env_utils import gym_space_from_arrays
-from robogym.utils.multi_goal_tracker import MultiGoalTracker
 
 logger = logging.getLogger(__name__)
 
@@ -153,36 +151,6 @@ class RobotEnvConstants:
 
     # If randomize the environment.
     randomize: bool = True
-
-    #####################
-    # Multiple successes settings
-
-    # Threshold for success conditions
-    success_threshold: dict = {}
-
-    # How many successes needed to stop the episode.
-    successes_needed: int = 5
-
-    # Reward for a single success if all the distances are within the `success_threshold`
-    success_reward: float = 5.0
-
-    # Number of seconds to sample the amount of time (in seconds) that success needs to
-    # stay in successful state to be counted. This defines the range (in seconds) and the
-    # actual pause time is sampled uniformly from within this range.
-    success_pause_range_s: Tuple[float, float] = (0.0, 0.0)
-
-    # Max timesteps for each goal until timeout.
-    max_timesteps_per_goal: Optional[int] = None
-
-    # If true, check if goal is reachable from current state after each step.
-    check_goal_reachable: bool = False
-
-    # How many gym steps we can make before considering the goal is unreachable.
-    max_steps_goal_unreachable: int = 10
-
-    # If yes, include `goal_distance_reward` into the final env reward.
-    # How `goal_distance_reward` is calculated depends on the specific env.
-    use_goal_distance_reward: bool = True
 
     #####################
     # Randomizer settings
@@ -341,7 +309,6 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
         mujoco_simulation: SType,
         mujoco_modifiers: Dict[str, Modifier],
         robot: Robot,
-        goal_generation: GoalGenerator,
         randomization: EnvRandomization,
         starting_seed: Optional[int] = None,
     ):
@@ -371,12 +338,6 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
         # Episode step counter
         self.t = 0
 
-        # "Goal" information
-        self._previous_goal_distance = None
-        self._goal = None  # type: ignore
-        self._goal_info_cache = None
-        self.goal_generation = goal_generation
-
         # Environment observation/action spaces
         self.action_space = spaces.Box(
             low=-1.0, high=1.0, shape=(len(robot.zero_control()),), dtype=np.float32
@@ -392,30 +353,12 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
         # List of mujoco modifiers
         self.modifiers: List[Tuple[str, Any]] = []
 
-        self.reward_names = ["env", "goal", "success"]
-
         self.last_update_time = time.time()
 
         self.mujoco_simulation.mj_sim.render_callback = self._render_callback
 
         for parameter_name, modifier in mujoco_modifiers.items():
             self.register_modifier(parameter_name, modifier)
-
-        # Set up trackers for multi-successes goals
-        self.multi_goal_tracker = MultiGoalTracker(
-            mujoco_simulation=self.mujoco_simulation,
-            reset_goal_generation_fn=self.reset_goal_generation,
-            reset_goal_fn=self.reset_goal,
-            max_timesteps_per_goal=self.constants.max_timesteps_per_goal,
-            success_reward=self.constants.success_reward,
-            successes_needed=self.constants.successes_needed,
-            success_pause_range_s=self.constants.success_pause_range_s,
-            max_steps_goal_unreachable=self.constants.max_steps_goal_unreachable,
-            check_goal_reachable=self.constants.check_goal_reachable,
-            use_goal_distance_reward=self.constants.use_goal_distance_reward,
-            goal_types=self.goal_generation.goal_types(),
-            random_state=self._random_state,
-        )
 
     def initialize(self):
         """
@@ -424,8 +367,6 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
         self._setup_simulation_from_parameters()
         if "orrb" in self.constants.observation_providers:
             self._reset()
-        self._goal = self._next_goal()
-        self.update_goal_info()
 
         self.observer = self._build_observer()
 
@@ -539,108 +480,6 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
         self._set_action(action)
 
     ###############################################################################################
-    # Internal API - goal interface
-
-    def _next_goal(self):
-        """ Return next goal for the robot. Return a dictionary representing that goal """
-        current_state = self.goal_generation.current_state()
-
-        return self.goal_generation.next_goal(self._random_state, current_state)
-
-    def _calculate_goal_distance_reward(
-        self, previous_goal_distance, goal_distance
-    ) -> float:
-        dist_reward = sum(
-            [
-                previous_goal_distance[k] - goal_distance[k]
-                for k in self.constants.success_threshold
-            ]
-        )
-        return dist_reward
-
-    def _calculate_goal_distance(self, current_state):
-        goal_distance = self.goal_generation.goal_distance(self._goal, current_state)
-        return goal_distance
-
-    def _is_successful_state(self, current_state):
-        goal_distance = self._calculate_goal_distance(current_state)
-        return self._is_successful(goal_distance)
-
-    def _is_successful(self, goal_distance):
-        return all(
-            [
-                np.all(goal_distance[k] < self.constants.success_threshold[k])
-                for k in self.constants.success_threshold
-            ]
-        )
-
-    def _get_goal_info(self):
-        """ Calculate information about current state of the goal """
-        current_state = self.goal_generation.current_state()
-        goal_distance = self._calculate_goal_distance(current_state)
-        relative_goal = goal_distance.pop("relative_goal", None)
-
-        goal_reachable = self.goal_generation.goal_reachable(self._goal, current_state)
-
-        # In case it's the first time, just set it to current goal distance
-        if self._previous_goal_distance is None:
-            self._previous_goal_distance = goal_distance
-
-        goal_distance_reward = self._calculate_goal_distance_reward(
-            self._previous_goal_distance, goal_distance
-        )
-
-        self._previous_goal_distance = goal_distance
-
-        optional_keys = {}
-        is_successful = (
-            self._is_successful(goal_distance)
-            or self.goal_generation.reached_terminal_state
-        )
-
-        optional_keys["goal_max_dist"] = {
-            k: np.max(goal_distance[k]) for k in self.constants.success_threshold
-        }
-        optional_keys["goal_failures"] = {
-            k: np.sum(goal_distance[k] > self.constants.success_threshold[k])
-            for k in self.constants.success_threshold
-        }
-
-        goal_info = {
-            "current_state": current_state,
-            "goal_dist": {key: np.sum(dist) for key, dist in goal_distance.items()},
-            "goal_achieved": is_successful,
-            "goal": self._goal,
-            "penalty": current_state.get("penalty", 0.0),
-            "goal_reachable": goal_reachable,
-            "solved": self.goal_generation.reached_terminal_state,
-        }
-
-        goal_info.update(optional_keys)
-
-        if relative_goal is not None:
-            for key, val in relative_goal.items():
-                goal_info[f"rel_goal_{key}"] = val.copy()
-
-        return goal_distance_reward, is_successful, deepcopy(goal_info)
-
-    @property
-    def _is_goal_achieved(self) -> bool:
-        """
-        Return if current goal is achieved.
-        """
-        assert self._goal_info_cache
-        return self._goal_info_cache[1]
-
-    @property
-    def _goal_info_dict(self) -> dict:
-        """
-        Return dict containing info e.g. goal state, relative goal state etc. for current goal
-        """
-        assert self._goal_info_cache
-        return self._goal_info_cache[2]
-
-    ###############################################################################################
     # Fully internal methods.
     def _synchronize_step_time(self):
         """
@@ -675,7 +514,6 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
         should only be called once every step.
         """
         self.mujoco_simulation.forward()
-        self.update_goal_info()
         self.observer.sync(sync_type=sync_type)
 
         observations = self.observe()
@@ -785,19 +623,13 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
         # reset observer.
         self.observer.reset()
 
-        # Reset multi goal tracker for a new episode.
-        self.multi_goal_tracker.reset()
-
-        # Reset state of goal generation.
-        return self.reset_goal_generation(sync_type=SyncType.RESET)
-
     def step_finalize(self, obs, env_reward, done, info):
         # Process the output by multiple goal tracker.
-        goal_distance_reward, is_successful, goal_info = self.goal_info()
-        obs, reward, done, info = self.multi_goal_tracker.process(
-            obs, env_reward, done, info, goal_distance_reward, is_successful, goal_info
-        )
-        info.update(goal_info)
+        # goal_distance_reward, is_successful, goal_info = self.goal_info()
+        # obs, reward, done, info = self.multi_goal_tracker.process(
+        #     obs, env_reward, done, info, goal_distance_reward, is_successful, goal_info
+        # )
+        # info.update(goal_info)
 
         return obs, reward, done, info
 
@@ -843,17 +675,6 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
         obs, reward, done, info = self.step_finalize(obs, reward, done, info)
         return obs, reward, done, info
 
-    def get_info_finalize(self, info: dict) -> dict:
-        """This is called to append more info into the original `info` dict, including stats
-        from multi-goal tracker or self-play tracker.
-
-        This should neither affect observation nor trigger any tracker process calls.
-        Multiple calls without step() in-between should yield same results.
-        """
-        _, _, goal_info = self.goal_info()
-        info = self.multi_goal_tracker.update_info(info, goal_info)
-        info.update(goal_info)
-        return info
 
     def get_observation(self, robot_exception=None):
         # Get current state to return to the user
@@ -881,36 +702,6 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
         assert isinstance(env_reward, float)
 
         return info, env_reward, done
-
-    def update_goal_info(self):
-        """
-        Re-computes and caches the current goal_info. Usually you do not have to call this
-        since `step` will automatically do so. However, if you manipulate the state externally,
-        you will have to call this method after.
-        """
-        self._goal_info_cache = self._get_goal_info()
-
-    def reset_goal(self, update_seed=False, sync_type=SyncType.RESET_GOAL):
-        """ Reset the goal of the environment """
-
-        # Reset stats for one goal in the same episode.
-        self.multi_goal_tracker.reset_goal_steps()
-
-        # Randomize a target for the robot
-        self._goal = self._next_goal()
-        self._previous_goal_distance = None
-
-        return self._observe_sync(sync_type=sync_type)
-
-    def reset_goal_generation(self, sync_type=SyncType.RESET_GOAL):
-        """ Reset state of goal generation. """
-
-        self.goal_generation.reset(self._random_state)
-        return self.reset_goal(sync_type=sync_type)
-
-    def goal_info(self):
-        """ Return info about the goal """
-        return self._goal_info_cache
 
     def render(self, mode="human", width=500, height=500):
         """Renders the environment.
@@ -1000,16 +791,6 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
     def build_robot(cls, mujoco_simulation: SType, physical: bool) -> Robot:
         """
         Build robot for this environment.
-        """
-        pass
-
-    @classmethod
-    @abc.abstractmethod
-    def build_goal_generation(
-        cls, constants: CType, mujoco_simulation: SType
-    ) -> GoalGenerator:
-        """
-        Build goal generation for this environment.
         """
         pass
 
@@ -1112,8 +893,6 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
 
         mujoco_modifiers = cls.build_mujoco_modifiers()
 
-        goal_generation = cls.build_goal_generation(constants, mujoco_simulation)
-
         randomization = cls.build_randomization(constants, parameters)
 
         for name in constants.randomizers:
@@ -1128,7 +907,6 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
             mujoco_simulation=mujoco_simulation,
             mujoco_modifiers=mujoco_modifiers,
             robot=robot,
-            goal_generation=goal_generation,
             randomization=randomization,
             starting_seed=starting_seed,
         )
