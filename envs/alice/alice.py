@@ -16,16 +16,9 @@ from robogym.envs.rearrange.common.utils import (
     sample_group_counts,
     stabilize_objects,
 )
-from robogym.envs.rearrange.goals.object_state import GoalArgs, ObjectStateGoal
-from robogym.envs.rearrange.goals.train_state import TrainStateGoal
-from robogym.envs.rearrange.observation.common import (
-    MujocoGoalImageObservationProvider,
-    MujocoImageObservationProvider,
-)
+
 from robogym.envs.rearrange.simulation.base import (
     ObjectGroupConfig,
-    RearrangeSimParameters,
-    RearrangeSimulationInterface,
 )
 from robogym.mujoco.constants import MujocoEquality
 from robogym.observation.common import SyncType
@@ -39,16 +32,22 @@ from robogym.randomization.sim import (
     JointMarginRandomizer,
     PidRandomizer,
 )
-from robogym.robot.robot_interface import RobotControlParameters
-from robot_env import ObservationMapValue as omv
-from robot_env import (
+from .alice_base import ObservationMapValue as omv
+from .alice_base import (
     RobotEnv,
     RobotEnvConstants,
     RobotEnvParameters,
     build_nested_attr,
     get_generic_param_type,
 )
-from robogym.envs.rearrange.common.base import RearrangeEnvParameters
+from .alice_simulation import (
+    AliceSimParameters,
+    AliceSimulationInterface
+)
+from robogym.envs.rearrange.common.base import (
+    RearrangeEnvParameters,
+    RearrangeRobotControlParameters
+)
 
 from robogym.utils.env_utils import InvalidSimulationError
 from robogym.wrappers.util import (
@@ -62,8 +61,6 @@ logger = logging.getLogger(__name__)
 
 VISION_OBS = "vision_obs"
 VISION_OBS_MOBILE = "vision_obs_mobile"
-VISION_GOAL = "vision_goal"
-
 
 @attr.s(auto_attribs=True)
 class EncryptEnvConstants:
@@ -125,7 +122,8 @@ class AliceEnvConstants(RobotEnvConstants):
     sample_lam_low: float = 0.1
     sample_lam_high: float = 5.0
 
-    encrypt_env_constants: EncryptEnvConstants = build_nested_attr(EncryptEnvConstants)
+    encrypt_env_constants: EncryptEnvConstants = build_nested_attr(
+        EncryptEnvConstants)
 
     # Action spacing function to be used by the DiscretizeActionWrapper
     action_spacing: BinSpacing = attr.ib(
@@ -149,24 +147,15 @@ class AliceEnvConstants(RobotEnvConstants):
 
 
 @attr.s(auto_attribs=True)
-class RearrangeRobotControlParameters(RobotControlParameters):
-    """ Robot control parameters – defined as parameters since max_position_change can be
-    subject to ADR randomization """
-
-    # refer to RobotControlParameters.default_max_pos_change_for_solver to set a
-    # reasonable default here.
-    max_position_change: float = build_randomizable_param(0.1, low=0.01, high=2.5)
-
-@attr.s(auto_attribs=True)
 class AliceEnvParameters(RearrangeEnvParameters):
     simulation_params: AliceSimParameters = build_nested_attr(
         AliceSimParameters
     )
 
 
-PType = TypeVar("PType", bound=RearrangeEnvParameters)
-CType = TypeVar("CType", bound=RearrangeEnvConstants)
-SType = TypeVar("SType", bound=RearrangeSimulationInterface)
+PType = TypeVar("PType", bound=AliceEnvParameters)
+CType = TypeVar("CType", bound=AliceEnvConstants)
+SType = TypeVar("SType", bound=AliceSimulationInterface)
 
 
 class AliceEnv(RobotEnv[PType, CType, SType], abc.ABC):
@@ -200,14 +189,6 @@ class AliceEnv(RobotEnv[PType, CType, SType], abc.ABC):
                         self.constants.vision_args.mobile_camera_names,
                         image_size,
                     ),
-                    "goal_image": MujocoGoalImageObservationProvider(
-                        self.mujoco_simulation,
-                        self.constants.vision_args.camera_names,
-                        image_size,
-                        self.goal_info,
-                        "qpos_goal",
-                        hide_robot=self.constants.goal_args.goal_hide_robot,
-                    ),
                 }
             )
 
@@ -224,14 +205,6 @@ class AliceEnv(RobotEnv[PType, CType, SType], abc.ABC):
                             self.constants.vision_args.mobile_camera_names,
                             600,
                         ),
-                        "goal_image_high_res": MujocoGoalImageObservationProvider(
-                            self.mujoco_simulation,
-                            self.constants.vision_args.camera_names,
-                            600,
-                            self.goal_info,
-                            "qpos_goal",
-                            hide_robot=self.constants.goal_args.goal_hide_robot,
-                        ),
                     }
                 )
 
@@ -245,7 +218,6 @@ class AliceEnv(RobotEnv[PType, CType, SType], abc.ABC):
                 {
                     VISION_OBS: omv({"image": ImageObservation}),
                     VISION_OBS_MOBILE: omv({"image_mobile": ImageObservation}),
-                    VISION_GOAL: omv({"goal_image": ImageObservation}),
                 }
             )
 
@@ -255,42 +227,10 @@ class AliceEnv(RobotEnv[PType, CType, SType], abc.ABC):
                     VISION_OBS + "_high_res": omv({"image_high_res": ImageObservation}),
                     VISION_OBS_MOBILE
                     + "_high_res": omv({"image_mobile_high_res": ImageObservation}),
-                    VISION_GOAL
-                    + "_high_res": omv({"goal_image_high_res": ImageObservation}),
                 }
             )
 
         return obs_map
-
-    def _mask_goal_observation(
-        self, obs: dict, goal_objects_in_placement_area: np.ndarray
-    ) -> dict:
-        """Create masked goal observation.
-        """
-        if not self.constants.mask_obs_outside_placement_area:
-            return obs
-
-        # Add goal observations (with optional masking).
-        # 1.0 if an object is within the placement area.
-        mask = goal_objects_in_placement_area.astype(np.float).reshape(-1, 1)
-        assert mask.ndim == obs["goal_obj_pos"].ndim
-        assert mask.shape[0] == obs["goal_obj_pos"].shape[0]
-
-        obs["goal_placement_mask"] = mask.copy()
-
-        # Mask all other goal-related observations. Note that We do not mask qpos_goal since
-        # it contains the robot joints. qpos is only used for image rendering and policy should
-        # not observe it.
-        goal_obs_keys = [
-            "goal_obj_pos",
-            "goal_obj_rot",
-            "rel_goal_obj_pos",
-            "rel_goal_obj_rot",
-        ]
-        for k in goal_obs_keys:
-            obs[f"masked_{k}"] = obs[k] * mask
-
-        return obs
 
     def _mask_object_observation(self, obs: dict) -> dict:
         """Create masked object state observation.
@@ -352,10 +292,6 @@ class AliceEnv(RobotEnv[PType, CType, SType], abc.ABC):
             "gripper_qpos": robot_obs.gripper_qpos(),
             "gripper_vel": robot_obs.gripper_vel(),
             "qpos": self.mujoco_simulation.qpos,
-            "qpos_goal": self._goal["qpos_goal"].copy(),
-            "goal_obj_pos": self._goal["obj_pos"].copy(),
-            "goal_obj_rot": self._goal["obj_rot"].copy(),
-            "is_goal_achieved": np.array([self._is_goal_achieved], np.int32),
             "obj_bbox_size": self.mujoco_simulation.get_object_bounding_box_sizes(),
             "obj_colors": self.mujoco_simulation.get_object_colors(),
             "safety_stop": np.array([robot_obs.is_in_safety_stop()]),
@@ -364,21 +300,14 @@ class AliceEnv(RobotEnv[PType, CType, SType], abc.ABC):
         }
 
         if self.constants.mask_obs_outside_placement_area:
-            obs = self._mask_goal_observation(
-                obs, self._goal["goal_objects_in_placement_area"].copy()
-            )
             obs = self._mask_object_observation(obs)
 
         return obs
 
     @classmethod
     def build_simulation(cls, constants: CType, parameters: PType) -> SType:
-        constants.max_timesteps_per_goal = (
-            constants.max_timesteps_per_goal_per_obj
-            * parameters.simulation_params.num_objects
-        )
-
-        simulation_type = get_generic_param_type(cls, 2, RearrangeSimulationInterface)
+        simulation_type = get_generic_param_type(
+            cls, 2, AliceSimulationInterface)
         return simulation_type.build(
             robot_control_params=parameters.robot_control_params,
             simulation_params=parameters.simulation_params,
@@ -408,8 +337,10 @@ class AliceEnv(RobotEnv[PType, CType, SType], abc.ABC):
                 "robot0:gripper_base"
             )
             tcp_quat = self.sim.data.get_body_xquat("robot0:gripper_base")
-            self.mujoco_simulation.mj_sim.data.set_mocap_pos("robot0:mocap", tcp_pos)
-            self.mujoco_simulation.mj_sim.data.set_mocap_quat("robot0:mocap", tcp_quat)
+            self.mujoco_simulation.mj_sim.data.set_mocap_pos(
+                "robot0:mocap", tcp_pos)
+            self.mujoco_simulation.mj_sim.data.set_mocap_quat(
+                "robot0:mocap", tcp_quat)
 
             for _ in range(10):
                 self.mujoco_simulation.step()
@@ -480,7 +411,8 @@ class AliceEnv(RobotEnv[PType, CType, SType], abc.ABC):
             )
 
         assert len(self.parameters.simulation_params.object_groups) > 0
-        obj_group_config_type = type(self.parameters.simulation_params.object_groups[0])
+        obj_group_config_type = type(
+            self.parameters.simulation_params.object_groups[0])
 
         num_groups = len(group_counts)
 
@@ -491,7 +423,8 @@ class AliceEnv(RobotEnv[PType, CType, SType], abc.ABC):
             obj_group = obj_group_config_type(count=group_counts[i])
 
             # Set up object ids
-            obj_group.object_ids = list(range(obj_id, obj_id + group_counts[i]))
+            obj_group.object_ids = list(
+                range(obj_id, obj_id + group_counts[i]))
             obj_id += group_counts[i]
 
             object_groups.append(obj_group)
@@ -553,7 +486,8 @@ class AliceEnv(RobotEnv[PType, CType, SType], abc.ABC):
 
     def _apply_object_colors(self):
         obj_groups = self.mujoco_simulation.object_groups
-        obj_colors = [g.color.copy() for g in obj_groups for _ in range(g.count)]
+        obj_colors = [g.color.copy()
+                      for g in obj_groups for _ in range(g.count)]
         self.mujoco_simulation.set_object_colors(obj_colors)
 
     def _apply_object_size_scales(self):
@@ -582,7 +516,6 @@ class AliceEnv(RobotEnv[PType, CType, SType], abc.ABC):
 
     def _set_object_initial_rotations(self, quats: np.ndarray):
         self.mujoco_simulation.set_object_quat(quats)
-        self.mujoco_simulation.set_target_quat(quats)
         self.mujoco_simulation.forward()
 
     def _randomize_camera(self):
@@ -680,25 +613,6 @@ class AliceEnv(RobotEnv[PType, CType, SType], abc.ABC):
             ambient_intensity,
         )
 
-    def reset_goal(
-        self, update_seed=False, sync_type=SyncType.RESET_GOAL, raise_when_invalid=True
-    ):
-        obs = super().reset_goal(update_seed=update_seed, sync_type=sync_type)
-
-        # Check if goal placement is valid here.
-        if not self._goal["goal_valid"]:
-            if raise_when_invalid:
-                raise InvalidSimulationError(
-                    self._goal.get("goal_invalid_reason", "Goal is invalid.")
-                )
-            else:
-                logger.info(
-                    "InvalidSimulationError: "
-                    + self._goal.get("goal_invalid_reason", "Goal is invalid.")
-                )
-
-        return obs
-
     def _get_simulation_info(self) -> dict:
         object_positions = self.mujoco_simulation.get_object_pos()[
             : self.mujoco_simulation.num_objects
@@ -742,7 +656,8 @@ class AliceEnv(RobotEnv[PType, CType, SType], abc.ABC):
                 "objects_off_table", 0.0
             )
         if any(self.observe()["safety_stop"]):
-            reward -= self.parameters.simulation_params.penalty.get("safety_stop", 0.0)
+            reward -= self.parameters.simulation_params.penalty.get(
+                "safety_stop", 0.0)
         return reward, done
 
     def _generate_object_placements(self) -> Tuple[np.ndarray, bool]:
@@ -772,32 +687,6 @@ class AliceEnv(RobotEnv[PType, CType, SType], abc.ABC):
         else:
             return placement, is_valid
 
-    def _calculate_num_success(self, goal_distance) -> float:
-        """
-        This method calculates the reward summed over all objects, where we only consider a
-        success if all goal distances are under the threshold.
-
-        NOTE: This method takes into account objects that are not being used and appear as a 0.
-        in goal_distance so it should only be used in situations where you're subtracting the
-        output of this with 2 different goal_distance values.
-        """
-        per_goal_successful = np.stack(
-            [
-                goal_distance[k] < self.constants.success_threshold[k]
-                for k in self.constants.success_threshold
-            ],
-            axis=0,
-        )  # Dimensions [metric, object]
-        per_goal_successful = np.all(per_goal_successful, axis=0)  # Dimensions [object]
-        return np.sum(per_goal_successful) * self.constants.goal_reward_per_object
-
-    def _calculate_goal_distance_reward(
-        self, previous_goal_distance, goal_distance
-    ) -> float:
-        previous_num_success = self._calculate_num_success(previous_goal_distance)
-        num_success = self._calculate_num_success(goal_distance)
-        return num_success - previous_num_success
-
     def _recreate_sim(self) -> None:
         self.mujoco_simulation.update(
             self.build_simulation(self.constants, self.parameters)
@@ -820,16 +709,6 @@ class AliceEnv(RobotEnv[PType, CType, SType], abc.ABC):
             name = f"object{idx}"
             _viewer.add_marker(
                 size=size, pos=pos, rgba=np.array([0, 0.5, 1, 0.1]), label=name
-            )
-
-        # Debug visualization of target bounding boxes.
-        bounding_boxes = (
-            self.mujoco_simulation.get_target_bounding_boxes_in_table_coordinates()
-        )
-        for idx, (pos, size) in enumerate(bounding_boxes):
-            name = f"target:object{idx}"
-            _viewer.add_marker(
-                size=size, pos=pos, rgba=np.array([0.5, 0, 1, 0.1]), label=name
             )
 
         # Debug visualization of the placement area.
@@ -867,72 +746,13 @@ class AliceEnv(RobotEnv[PType, CType, SType], abc.ABC):
 
         self._randomize_robot_initial_position()
 
-        # Update `max_timesteps_per_goal` directly in the tracker. Do NOT update
-        # `self.constants.max_timesteps_per_goal` here since it won't propagate correctly
-        # to `MultiGoalTracker`.
-        assert hasattr(self.multi_goal_tracker, "max_timesteps_per_goal")
-
-        self.multi_goal_tracker.max_timesteps_per_goal = (
-            self.constants.max_timesteps_per_goal_per_obj
-            * self.mujoco_simulation.num_objects
-        )
-
         # Reset the placement area boundary, a tuple of (min_x, min_y, min_z, max_x, max_y, max_z).
         self._placement_area_boundary = (
             self.mujoco_simulation.extract_placement_area_boundary()
         )
 
     def _act(self, action):
-        if self.constants.teleport_to_goal and self.t > 10:
-            # Override the policy by teleporting directly to the goal state (used to generate
-            # a balanced distribution for training a goal classifier). Add some noise to the
-            # objects' states; we tune the scale of the noise so that with probability p=0.5,
-            # all objects are within the success_threshold. This will result in our episodes
-            # containing a ~p/(1+p) fraction of goal-achieved states.
-            target_pos = self.mujoco_simulation.get_target_pos(pad=False)
-            target_quat = self.mujoco_simulation.get_target_quat(pad=False)
-
-            num_objects = target_pos.shape[0]
-            num_randomizations = num_objects * (
-                ("obj_pos" in self.constants.success_threshold)
-                + ("obj_rot" in self.constants.success_threshold)
-            )
-            assert num_randomizations > 0
-            success_prob = 0.5 ** (1 / num_randomizations)
-
-            # Add Gaussian noise to x and y position.
-            if "obj_pos" in self.constants.success_threshold:
-                # Tune the noise so that the position is within success_threshold with
-                # probability success_prob. Note for example that noise_scale -> 0 when
-                # success_prob -> 1, and noise_scale -> infinity when success_prob -> 0.
-                noise_scale = np.ones_like(target_pos)
-                noise_scale *= self.constants.success_threshold["obj_pos"]
-                noise_scale /= np.sqrt(-2 * np.log(1 - success_prob))
-                noise_scale[:, 2] = 0.0  # Don't add noise to the z-axis
-                target_pos = np.random.normal(loc=target_pos, scale=noise_scale)
-
-            # Add Gaussian noise to rotation about z-axis.
-            if "obj_rot" in self.constants.success_threshold:
-                # Tune the noise so that the rotation is within success_threshold with
-                # probability success_prob. Note for example that noise_scale -> 0 when
-                # success_prob -> 1, and noise_scale -> infinity when success_prob -> 0.
-                noise_scale = self.constants.success_threshold["obj_rot"]
-                noise_scale /= scipy.special.ndtri(
-                    success_prob + (1 - success_prob) / 2
-                )
-                noise_quat = rotation.quat_from_angle_and_axis(
-                    angle=np.random.normal(
-                        loc=np.zeros((num_objects,)), scale=noise_scale
-                    ),
-                    axis=np.array([[0, 0, 1.0]] * num_objects),
-                )
-                target_quat = rotation.quat_mul(target_quat, noise_quat)
-
-            self.mujoco_simulation.set_object_pos(target_pos)
-            self.mujoco_simulation.set_object_quat(target_quat)
-            self.mujoco_simulation.forward()
-        else:
-            self._set_action(action)
+        self._set_action(action)
 
     def apply_wrappers(self, **wrapper_params):
         env = SmoothActionWrapper(self, alpha=0.3)
@@ -945,12 +765,6 @@ class AliceEnv(RobotEnv[PType, CType, SType], abc.ABC):
 
         return env
 
-    @classmethod
-    def build_goal_generation(cls, constants: CType, mujoco_simulation: SType):
-        if constants.goal_generation == "train":
-            return TrainStateGoal(mujoco_simulation, args=constants.goal_args)
-        else:
-            return ObjectStateGoal(mujoco_simulation, args=constants.goal_args)
 
     @classmethod
     def build_observation_randomizers(cls, constants: CType):
@@ -1041,5 +855,6 @@ class AliceEnv(RobotEnv[PType, CType, SType], abc.ABC):
                 apply_mode="variance_additive",
             ),
         ]
+
 
 make_env = AliceEnv.build

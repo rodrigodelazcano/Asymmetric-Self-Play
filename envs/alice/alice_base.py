@@ -29,6 +29,9 @@ from robogym.robot.robot_interface import Robot
 from robogym.robot_exception import RobotException
 from robogym.utils.env_utils import gym_space_from_arrays
 
+from robogym.robot_env import RobotEnvParameters
+
+
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
@@ -90,20 +93,12 @@ def get_generic_param_type(type_: Type, i: int, expected_type: Type):
     type_param = type_.__orig_bases__[0].__args__[i]
     if isinstance(type_param, TypeVar):  # type: ignore
         type_param = type_param.__bound__
-
     assert issubclass(type_param, expected_type), (
         f"Parameter class {type_param} is not a subclass of {expected_type}"
         f"Please make sure type arguments for {type_} is correctly specified."
     )
 
     return type_param
-
-
-@attr.s(auto_attribs=True)
-class RobotEnvParameters:
-    # How many steps with random action do we take when the environment is initialized.
-    # This should be nonzero for sim2real training configs.
-    n_random_initial_steps: int = 10
 
 
 @attr.s(auto_attribs=True)
@@ -606,12 +601,10 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
 
         # Reset randomization
         self.randomization.reset()
-
         # Randomize parameters.
         self.parameters = self.randomization.parameter_randomizer.randomize(
             self.parameters, self._random_state
         )
-
         self._reset()
 
         # Randomize simulation. Because sim is recreated in self._reset(),
@@ -619,7 +612,6 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
         self.randomization.simulation_randomizer.randomize(
             self.mujoco_simulation.mj_sim, self._random_state
         )
-
         # reset observer.
         self.observer.reset()
 
@@ -816,6 +808,7 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
         """
         Build simulation for this environment.
         """
+        print(constants)
         return EnvRandomization(
             parameter_randomizer=cls.build_parameter_randomizer(constants, parameters),
             observation_randomizer=EnvObservationRandomizer(
@@ -885,7 +878,6 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
 
         if isinstance(parameters, dict):
             parameters = parameter_class(**parameters)
-
         if isinstance(constants, dict):
             constants = constant_class(**constants)
 
@@ -897,6 +889,7 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
 
         for name in constants.randomizers:
             randomization.get_randomizer(name).enable()
+        
 
         robot = cls.build_robot(
             mujoco_simulation=mujoco_simulation, physical=constants.physical
