@@ -22,9 +22,10 @@ from robogym.envs.rearrange.simulation.base import (
     RearrangeSimParameters,
     RearrangeSimulationInterface,
 )
-from simulation import (
+from .simulation import (
     AliceSimulationInterface,
     AliceSimParameters,
+    RobotSimParameters,
 )
 from robogym.mujoco.constants import MujocoEquality
 from robogym.observation.common import SyncType
@@ -42,8 +43,8 @@ from robogym.envs.rearrange.observation.common import (
     MujocoImageObservationProvider,
 )
 from robogym.robot.robot_interface import RobotControlParameters
-from robot_env import ObservationMapValue as omv
-from robot_env import (
+from .robot_env import ObservationMapValue as omv
+from .robot_env import (
     RobotEnv,
     RobotEnvConstants,
     RobotEnvParameters,
@@ -162,8 +163,8 @@ class BaseEnvParameters(RobotEnvParameters):
         BaseRobotControlParameters
     )
 
-    simulation_params: AliceSimParameters = build_nested_attr(
-        AliceSimParameters
+    simulation_params: RobotSimParameters = build_nested_attr(
+        RobotSimParameters
     )
 
     # If true, turn on debugging features like visualizing bounding boxes.
@@ -643,7 +644,7 @@ class BaseEnv(RobotEnv[PType, CType, SType], abc.ABC):
         objects_off_table = self.mujoco_simulation.check_objects_off_table(
             object_positions
         )
-
+        
         simulation_info = super()._get_simulation_info()
         simulation_info["objects_off_table"] = objects_off_table
 
@@ -653,34 +654,6 @@ class BaseEnv(RobotEnv[PType, CType, SType], abc.ABC):
 
         return simulation_info
 
-    def _get_simulation_reward_with_done(self, info: dict) -> Tuple[float, bool]:
-        reward, done = super()._get_simulation_reward_with_done(info)
-
-        # If there is a gripper to table contact, apply table_collision penalty
-        table_penalty = self.parameters.simulation_params.penalty.get(
-            "table_collision", 0.0
-        )
-
-        if self.mujoco_simulation.get_gripper_table_contact():
-            reward -= table_penalty
-
-        # Add a large negative penalty for "breaking" the wrist camera by hitting it
-        # with the table or another object.
-        if info.get("wrist_cam_contacts", {}).get("any", False):
-            reward -= self.parameters.simulation_params.penalty.get(
-                "wrist_collision", 0.0
-            )
-
-        if "objects_off_table" in info and info["objects_off_table"].any():
-            # If any object is off the table, we will end the episode
-            done = True
-            # Add a penalty to letting an object go off the table
-            reward -= self.parameters.simulation_params.penalty.get(
-                "objects_off_table", 0.0
-            )
-        if any(self.observe()["safety_stop"]):
-            reward -= self.parameters.simulation_params.penalty.get("safety_stop", 0.0)
-        return reward, done
 
     def _generate_object_placements(self) -> Tuple[np.ndarray, bool]:
         """

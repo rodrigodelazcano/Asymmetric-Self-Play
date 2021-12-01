@@ -29,9 +29,6 @@ from robogym.robot.robot_interface import Robot
 from robogym.robot_exception import RobotException
 from robogym.utils.env_utils import gym_space_from_arrays
 
-from robogym.robot_env import RobotEnvParameters
-
-
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
@@ -102,6 +99,13 @@ def get_generic_param_type(type_: Type, i: int, expected_type: Type):
 
 
 @attr.s(auto_attribs=True)
+class RobotEnvParameters:
+    # How many steps with random action do we take when the environment is initialized.
+    # This should be nonzero for sim2real training configs.
+    n_random_initial_steps: int = 10
+
+
+@attr.s(auto_attribs=True)
 class RobotEnvConstants:
     """ Parameters of the env - set once and for all """
 
@@ -126,6 +130,23 @@ class RobotEnvConstants:
 
     # timestep for each mujoco simulation step.
     mujoco_timestep: float = 0.002
+
+    ####################
+    # Goal setting constants.
+
+    max_goal_setting_steps_per_object: int = 100
+
+    ###################
+    # Reward constants.
+    
+    # negative reward if the goal set is in out of zone
+    out_of_zone_goal_reward: float = 3.0
+
+    # positive reward if goal set is valid
+    valid_goal_reward: float = 1.0
+
+    # positive/negative reward Bob's success/failure
+    bob_reward: float = 5.0
 
     ####################
     # Observation related constants.
@@ -348,12 +369,15 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
         # List of mujoco modifiers
         self.modifiers: List[Tuple[str, Any]] = []
 
+        # self.reward_names = ["env", "goal", "success"]
+
         self.last_update_time = time.time()
 
         self.mujoco_simulation.mj_sim.render_callback = self._render_callback
 
         for parameter_name, modifier in mujoco_modifiers.items():
             self.register_modifier(parameter_name, modifier)
+
 
     def initialize(self):
         """
@@ -605,15 +629,20 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
         self.parameters = self.randomization.parameter_randomizer.randomize(
             self.parameters, self._random_state
         )
+
         self._reset()
 
         # Randomize simulation. Because sim is recreated in self._reset(),
         # simulation_randomizer.randomize should be called after the _reset.
+
         self.randomization.simulation_randomizer.randomize(
             self.mujoco_simulation.mj_sim, self._random_state
         )
+
         # reset observer.
         self.observer.reset()
+
+        return self._observe_sync(sync_type=SyncType.RESET)
 
     def step_finalize(self, obs, env_reward, done, info):
         # Process the output by multiple goal tracker.
@@ -621,9 +650,8 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
         # obs, reward, done, info = self.multi_goal_tracker.process(
         #     obs, env_reward, done, info, goal_distance_reward, is_successful, goal_info
         # )
-        # info.update(goal_info)
 
-        return obs, reward, done, info
+        return obs, env_reward, done, info
 
     def step(self, action):
         """Run one timestep of the environment's dynamics. When end of
@@ -664,9 +692,8 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
         self.t += 1
 
         obs, reward, done, info = self.get_observation(robot_exception=robot_exception)
-        obs, reward, done, info = self.step_finalize(obs, reward, done, info)
-        return obs, reward, done, info
 
+        return obs, reward, done, info
 
     def get_observation(self, robot_exception=None):
         # Get current state to return to the user
@@ -681,7 +708,6 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
             done = True
             env_reward = 0.0  # TBD consider adding a penalty if useful
 
-        info = self.get_info_finalize(info)
         return obs, env_reward, done, info
 
     def get_info(self):
@@ -808,7 +834,6 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
         """
         Build simulation for this environment.
         """
-        print(constants)
         return EnvRandomization(
             parameter_randomizer=cls.build_parameter_randomizer(constants, parameters),
             observation_randomizer=EnvObservationRandomizer(
@@ -862,7 +887,7 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
         apply_wrappers=True,
     ):
         """
-        Construct a robot environment together with a set of common wrappers.
+        Construct a dactyl environment together with a set of common wrappers.
         """
         if parameters is None:
             parameters = {}
@@ -872,12 +897,13 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
 
         if wrapper_params is None:
             wrapper_params = {}
-
+        
         parameter_class = get_generic_param_type(cls, 0, RobotEnvParameters)
         constant_class = get_generic_param_type(cls, 1, RobotEnvConstants)
 
         if isinstance(parameters, dict):
             parameters = parameter_class(**parameters)
+
         if isinstance(constants, dict):
             constants = constant_class(**constants)
 
@@ -887,10 +913,9 @@ class RobotEnv(gym.Env, Generic[PType, CType, SType], metaclass=EnvMeta):
 
         randomization = cls.build_randomization(constants, parameters)
 
+
         for name in constants.randomizers:
             randomization.get_randomizer(name).enable()
-        
-
         robot = cls.build_robot(
             mujoco_simulation=mujoco_simulation, physical=constants.physical
         )

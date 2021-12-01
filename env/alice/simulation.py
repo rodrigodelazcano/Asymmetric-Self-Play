@@ -1,34 +1,32 @@
-from collections import namedtuple
-from contextlib import contextmanager
-from typing import Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar, Union
-
 import attr
 import numpy as np
-from gym.envs.robotics import rotations
-from mujoco_py import const
+from typing import Any, Dict, Generic, List, Optional, Tuple, Type, TypeVar, Union
+from collections import namedtuple
 
+from robogym.randomization.env import build_randomizable_param
+from robogym.robot.composite.ur_gripper_arm import build_composite_robot
+from robogym.mujoco.mujoco_xml import ASSETS_DIR, MujocoXML
+from contextlib import contextmanager
+
+from robogym.mujoco.simulation_interface import (
+    SimulationInterface,
+    SimulationParameters,
+)
+from robogym.robot.ur16e.mujoco.simulation.base import ArmSimulationInterface
+from robogym.robot.robot_interface import RobotControlParameters
 from robogym.envs.rearrange.common.utils import (
     PlacementArea,
     geom_ids_of_body,
     get_all_vertices,
     mesh_vert_range_of_geom,
 )
-from robogym.mujoco.mujoco_xml import MujocoXML
-from robogym.mujoco.simulation_interface import (
-    SimulationInterface,
-    SimulationParameters,
-)
-from robogym.envs.rearrange.common.utils import (
-    make_block,
-    make_openai_block
-)
-from robogym.randomization.env import build_randomizable_param
-from robogym.robot.composite.ur_gripper_arm import build_composite_robot
-from robogym.robot.robot_interface import RobotControlParameters
-from robogym.robot.ur16e.mujoco.simulation.base import ArmSimulationInterface
 from robogym.utils import rotation
+from gym.envs.robotics import rotations
+from mujoco_py import MjSim, const
+from robogym.utils.rotation import mat2quat, quat2mat, quat_conjugate, uniform_quat
 
-from robogym.envs.rearrange.simulation.blocks import get_block_bounding_box
+## SIMULATION ##
+
 class Meta(type):
     @classmethod
     def __prepare__(mcs, name, bases, **kwds):
@@ -41,7 +39,6 @@ class Meta(type):
         super_prepared = super().__prepare__(mcs, name, bases, **kwds)
         super_prepared["__slots__"] = ()
         return super_prepared
-
 
 @attr.s(auto_attribs=True)
 class ObjectGroupConfig:
@@ -66,9 +63,8 @@ class ObjectGroupConfig:
     def validate_color(self, _, value):
         assert isinstance(value, np.ndarray) and value.shape == (4,)
 
-
 @attr.s(auto_attribs=True)
-class AliceSimParameters(SimulationParameters):
+class RobotSimParameters(SimulationParameters):
     num_objects: int = build_randomizable_param(1, low=1, high=32)
 
     # The object size in half-size (as per Mujoco convention).
@@ -114,12 +110,6 @@ class AliceSimParameters(SimulationParameters):
     # We always assume group id starting from 0 and new ones are assigned incrementally.
     object_groups: List[ObjectGroupConfig] = None  # type: ignore
 
-    # Appearance of the block. 'standard' blocks have plane faces without any texture or mark.
-    # 'openai' blocks have ['O', 'P', 'E', 'N', 'A', 'I'] in each face.
-    block_appearance: str = attr.ib(
-        default="standard", validator=attr.validators.in_(["standard", "openai"])
-    )
-
     def __attrs_post_init__(self):
         # Assign default value to object_groups if empty. Hard to use @object_groups.default here
         # as it depends on self.num_objects and the order is messed up in different subclasses.
@@ -129,12 +119,20 @@ class AliceSimParameters(SimulationParameters):
                 for obj_id in range(self.num_objects)
             ]
 
+@attr.s(auto_attribs=True)
+class AliceSimParameters(RobotSimParameters):
+    # Appearance of the block. 'standard' blocks have plane faces without any texture or mark.
+    # 'openai' blocks have ['O', 'P', 'E', 'N', 'A', 'I'] in each face.
+    block_appearance: str = attr.ib(
+        default="standard", validator=attr.validators.in_(["standard", "openai"])
+    )
 
-PType = TypeVar("PType", bound=AliceSimParameters)
+PSType = TypeVar("PSType", bound=RobotSimParameters)
 
+# Simulation Interface
 
 class AliceSimulationInterface(
-    ArmSimulationInterface, Generic[PType], metaclass=Meta
+    ArmSimulationInterface, Generic[PSType], metaclass=Meta
 ):
     """
     Creates a SimulationInterface with a rearrange-compatible robot-gripper and a
@@ -155,7 +153,7 @@ class AliceSimulationInterface(
         self,
         sim,
         robot_control_params: RobotControlParameters,
-        simulation_params: PType,
+        simulation_params: PSType,
     ):
         super().__init__(sim, robot_control_params=robot_control_params)
 
@@ -169,6 +167,7 @@ class AliceSimulationInterface(
             self.register_joint_group(f"object{i}", prefix=[f"object{i}:"])
             # Verify the qpos and qvel arrays are the proper lengths (there was previously a bug
             # which caused this to not be the case when > 10 objects existed).
+
             assert len(self.get_qpos(f"object{i}")) == 7
             assert len(self.get_qvel(f"object{i}")) == 6
 
@@ -218,7 +217,7 @@ class AliceSimulationInterface(
         return len(self.object_groups)
 
     @classmethod
-    def _sanity_check_object_groups(cls, sim_params: PType):
+    def _sanity_check_object_groups(cls, sim_params: PSType):
         # sanity check
         assert sim_params.object_groups
         assert (
@@ -235,7 +234,7 @@ class AliceSimulationInterface(
         n_substeps: int = 20,
         mujoco_timestep: float = 0.002,
         simulation_params: Optional[
-            PType
+            PSType
         ] = None,  # optional is required to keep parent signature compatibility
     ):
         assert (
@@ -244,7 +243,7 @@ class AliceSimulationInterface(
 
         xml = cls.make_xml(simulation_params, mujoco_timestep)
         xml = cls.make_robot_xml(xml, robot_control_params)
-
+        
         return cls(
             xml.build(nsubsteps=n_substeps),
             robot_control_params=robot_control_params,
@@ -252,7 +251,7 @@ class AliceSimulationInterface(
         )
 
     @classmethod
-    def make_xml(cls, simulation_params: PType, mujoco_timestep: float):
+    def make_xml(cls, simulation_params: PSType, mujoco_timestep: float):
         cls._sanity_check_object_groups(simulation_params)
 
         xml = cls.make_world_xml(
@@ -274,7 +273,6 @@ class AliceSimulationInterface(
                 simulation_params.object_groups[group_id].material_args
             )
             xml.append(obj_xml)
-
         return xml
 
     @classmethod
@@ -286,42 +284,14 @@ class AliceSimulationInterface(
             mujoco_timestep=mujoco_timestep,
         )
 
-    def make_blocks(
-        num_objects: int, block_size: Union[float, np.ndarray], appearance: str = "standard"
-    ) -> List[Tuple[MujocoXML]]:
-        if isinstance(
-            block_size, (int, float, np.integer, np.floating)
-        ) or block_size.shape == (1,):
-            block_size = np.tile(block_size, 3)
-        assert block_size.shape == (
-            3,
-        ), f"Bad block_size: {block_size}, expected float, np.ndarray(1,) or np.ndarray(3,)"
-
-        if appearance == "standard":
-            make_block_fn = make_block
-        elif appearance == "openai":
-            make_block_fn = make_openai_block
-
-        xmls: List[Tuple[MujocoXML]] = []
-        for i in range(num_objects):
-            # add the block
-            block_xml = make_block_fn(f"object{i}", block_size.copy())
-            xmls.append((block_xml))
-
-        return xmls
-
-    
     @classmethod
     def make_objects_xml(
-        cls, xml, simulation_params: PType
+        cls, xml, simulation_params: PSType
     ) -> List[Tuple[MujocoXML]]:
-
-        return cls.make_blocks(
-            simulation_params.num_objects,
-            simulation_params.object_size,
-            appearance=simulation_params.block_appearance,
-        )
-
+        """
+        Return list of (object xml, target xml) tuples.
+        """
+        return []
 
     def update(self, other: "AliceSimulationInterface"):
         """
@@ -845,9 +815,13 @@ class AliceSimulationInterface(
         table_body_id = self.mj_sim.model.body_name2id("table")
         table_pos = self.mj_sim.model.body_pos[table_body_id].copy()
         return self.compute_table_dimension(table_pos, table_size)
-    
-    def _get_bounding_box(self, object_name):
-        return get_block_bounding_box(self.mj_sim, object_name)
+
+    def _get_bounding_box(self, object_name: str) -> Tuple:
+        """
+        Returns the bounding box for one objects as a tuple of (positive, half size),
+        where both positive and half size are np.array of shape (3,).
+        """
+        raise NotImplementedError()
 
     def get_object_bounding_boxes(self) -> np.ndarray:
         """
@@ -955,11 +929,218 @@ class AliceSimulationInterface(
             sensordata=data.sensordata.copy(),
             udd_state={},
         )
-
-
 class ExtendedSimState(
     namedtuple(
         "MjSimState", "time qpos qvel qacc ctrl actuator_force sensordata udd_state"
     )
 ):
     pass
+
+## UTILS FUNCTIONS
+def rotate_bounding_box(
+    bounding_box: np.ndarray, quat: np.ndarray
+) -> Tuple[float, float]:
+    """ Rotates a bounding box by applying the quaternion and then re-computing the tightest
+    possible fit of an *axis-aligned* bounding box.
+    """
+    pos, size = bounding_box
+
+    # Compute 8 corners of bounding box.
+    signs = np.array([[x, y, z] for x in [-1, 1] for y in [-1, 1] for z in [-1, 1]])
+    corners = pos + signs * size
+    assert corners.shape == (8, 3)
+
+    # Rotate corners.
+    mat = quat2mat(quat)
+    rotated_corners = corners @ mat
+
+    # Re-compute bounding-box.
+    min_xyz = np.min(rotated_corners, axis=0)
+    max_xyz = np.max(rotated_corners, axis=0)
+    size = (max_xyz - min_xyz) / 2.0
+    assert np.all(size >= 0.0)
+    pos = min_xyz + size
+
+    return pos, size
+
+def geom_ids_of_body(sim: MjSim, body_name: str) -> List[int]:
+    object_id = sim.model.body_name2id(body_name)
+    object_geomadr = sim.model.body_geomadr[object_id]
+    object_geomnum = sim.model.body_geomnum[object_id]
+    return list(range(object_geomadr, object_geomadr + object_geomnum))
+
+def get_block_bounding_box(sim, object_name) -> Tuple[float, float]:
+    """ Returns the bounding box of a block body. If the block is rotated in the world frame,
+    the rotation is applied and the tightest axis-aligned bounding box is returned.
+    """
+    geom_ids = geom_ids_of_body(sim, object_name)
+    assert len(geom_ids) == 1, f"More than 1 geoms in {object_name}."
+    geom_id = geom_ids[0]
+    size = sim.model.geom_size[geom_id]
+    pos = sim.model.geom_pos[geom_id]
+
+    quat = quat_conjugate(mat2quat(sim.data.get_body_xmat(object_name)))
+    pos, size = rotate_bounding_box((pos, size), quat)
+    return pos, size
+
+def make_openai_block(name: str, object_size: np.ndarray) -> MujocoXML:
+    """ Creates a block with OPENAI letters on it faces.
+
+    :param name: The name of the block
+    :param object_size: The size of the block (3-dimensional). This is half-size as per Mujoco
+        convention
+    """
+    default_object_size = 0.0285
+    default_letter_offset = 0.0009
+
+    # scale face meshes properly
+    scale = object_size / default_object_size
+    letter_offset = default_letter_offset * scale
+
+    def to_str(x: np.ndarray):
+        return " ".join(map(str, x.tolist()))
+
+    face_pos = {
+        "top": {
+            "body": to_str(np.array([0, 0, object_size[2]])),
+            "geom": to_str(np.array([0, 0, -letter_offset[2]])),
+        },
+        "bottom": {
+            "body": to_str(np.array([0, 0, -object_size[2]])),
+            "geom": to_str(np.array([0, 0, letter_offset[2]])),
+        },
+        "back": {
+            "body": to_str(np.array([0, object_size[1], 0])),
+            "geom": to_str(np.array([0, -letter_offset[1], 0])),
+        },
+        "right": {
+            "body": to_str(np.array([object_size[0], 0, 0])),
+            "geom": to_str(np.array([-letter_offset[0], 0, 0])),
+        },
+        "front": {
+            "body": to_str(np.array([0, -object_size[1], 0])),
+            "geom": to_str(np.array([0, letter_offset[1], 0])),
+        },
+        "left": {
+            "body": to_str(np.array([-object_size[0], 0, 0])),
+            "geom": to_str(np.array([letter_offset[0], 0, 0])),
+        },
+    }
+    face_euler = {
+        "top": to_str(np.array([np.pi / 2, 0, np.pi / 2])),
+        "bottom": to_str(np.array([np.pi / 2, 0, np.pi / 2])),
+        "back": to_str(np.array([0, 0, np.pi / 2])),
+        "right": to_str(np.array([0, 0, 0])),
+        "front": to_str(np.array([0, 0, -np.pi / 2])),
+        "left": to_str(np.array([0, 0, np.pi])),
+    }
+
+    def face_xml(_name: str, _face: str, _c: str):
+        xml = f"""
+        <body name="{_face}:{_name}" pos="{face_pos[_face]['body']}">
+            <geom name="letter_{_c}:{_name}" mesh="{_name}{_c}" euler="{face_euler[_face]}"
+             pos="{face_pos[_face]['geom']}" type="mesh" material="{_name}letter"
+             conaffinity="0" contype="0" />
+        </body>
+        """
+        return xml
+
+    size_string = " ".join(map(str, list(object_size)))
+    scale_string = " ".join(map(str, list(scale)))
+
+    xml_source = f"""
+    <mujoco>
+        <asset>
+            <material name="{name}letter" specular="1" shininess="0.3" rgba="1 1 1 1"/>
+            <mesh name="{name}O" file="{ASSETS_DIR}/stls/openai_cube/O.stl"
+             scale="{scale_string}" />
+            <mesh name="{name}P" file="{ASSETS_DIR}/stls/openai_cube/P.stl"
+             scale="{scale_string}" />
+            <mesh name="{name}E" file="{ASSETS_DIR}/stls/openai_cube/E.stl"
+             scale="{scale_string}" />
+            <mesh name="{name}N" file="{ASSETS_DIR}/stls/openai_cube/N.stl"
+             scale="{scale_string}" />
+            <mesh name="{name}A" file="{ASSETS_DIR}/stls/openai_cube/A.stl"
+             scale="{scale_string}" />
+            <mesh name="{name}I" file="{ASSETS_DIR}/stls/openai_cube/I.stl"
+             scale="{scale_string}" />
+        </asset>
+        <worldbody>
+            <body name="{name}">
+                <geom name="{name}" size="{size_string}" type="box"
+                 rgba="0.0 0.0 0.0 0.0" material="block_mat"/>
+                <joint name="{name}:joint" type="free"/>
+                {face_xml(name, "top", "O")}
+                {face_xml(name, "bottom", "P")}
+                {face_xml(name, "back", "E")}
+                {face_xml(name, "right", "N")}
+                {face_xml(name, "front", "A")}
+                {face_xml(name, "left", "I")}
+            </body>
+        </worldbody>
+    </mujoco>
+    """
+    return MujocoXML.from_string(xml_source)
+
+def make_block(name: str, object_size: np.ndarray) -> MujocoXML:
+    """Creates a block.
+
+    :param name: The name of the block
+    :param object_size: The size of the block (3-dimensional). This is half-size as per Mujoco
+        convention
+    """
+    xml_source = f"""
+    <mujoco>
+    <worldbody>
+        <body name="{name}" pos="0.0 0.0 0.0">
+        <geom type="box" rgba="0.0 0.0 0.0 0.0" material="block_mat"/>
+        <joint name="{name}:joint" type="free"/>
+        </body>
+    </worldbody>
+    </mujoco>
+    """
+    xml = MujocoXML.from_string(xml_source).set_objects_attr(
+        tag="geom", size=object_size
+    )
+
+    return xml
+
+def make_blocks(
+    num_objects: int, block_size: Union[float, np.ndarray], appearance: str = "standard"
+) -> List[Tuple[MujocoXML]]:
+    if isinstance(
+        block_size, (int, float, np.integer, np.floating)
+    ) or block_size.shape == (1,):
+        block_size = np.tile(block_size, 3)
+    assert block_size.shape == (
+        3,
+    ), f"Bad block_size: {block_size}, expected float, np.ndarray(1,) or np.ndarray(3,)"
+
+    if appearance == "standard":
+        make_block_fn = make_block
+    elif appearance == "openai":
+        make_block_fn = make_openai_block
+
+    xmls: List[Tuple[MujocoXML]] = []
+    for i in range(num_objects):
+        # add the block
+        block_xml = make_block_fn(f"object{i}", block_size.copy())
+        xmls.append((block_xml))
+    return xmls
+
+# Final Alice Simulation
+class AliceSim(AliceSimulationInterface[AliceSimParameters]):
+    """
+    Move around a blocks of different colors on the table.
+    """
+
+    @classmethod
+    def make_objects_xml(cls, xml, simulation_params: AliceSimParameters):
+        return make_blocks(
+            simulation_params.num_objects,
+            simulation_params.object_size,
+            appearance=simulation_params.block_appearance,
+        )
+
+    def _get_bounding_box(self, object_name):
+        return get_block_bounding_box(self.mj_sim, object_name)
