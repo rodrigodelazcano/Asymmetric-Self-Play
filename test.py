@@ -4,8 +4,7 @@ alice_env = alice.make_env(
     
     parameters={
         'simulation_params': {
-            'num_objects': 2,
-            'max_num_objects': 8,
+            'num_objects': 1,
             'penalty': {
                 'table_collision': 0.0, 
                 'objects_off_table': 0.0,
@@ -22,7 +21,12 @@ while not done:
 
     action = alice_env.action_space.sample()
     obs, reward, done, info = alice_env.step(action)
-    alice_env.render()
+    # alice_env.render()
+
+    # print('obs: ', obs)
+    # print('reward: ', reward)
+    # print('done: ', done)
+    # print('info: ', info)
     
 
 

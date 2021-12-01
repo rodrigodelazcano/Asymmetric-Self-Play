@@ -36,6 +36,12 @@ class AliceEnv(
         (1, 1, 1, 1),
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # valid/invalid goal setting
+        self.valid_goal = True
+
     def _sample_object_colors(self, num_groups: int):
         return self._random_state.permutation(self.OBJECT_COLORS)[:num_groups]
 
@@ -43,9 +49,10 @@ class AliceEnv(
         super()._reset()
 
         # Save initial object pose
-
         self.initial_object_pos = self.mujoco_simulation.get_object_pos(pad=False).copy()
         self.initial_object_quat = self.mujoco_simulation.get_object_quat(pad=False).copy()
+
+        self.valid_goal = True
     
     def check_objects_moved_from_init_pose(self) -> bool:
         current_object_pos = self.mujoco_simulation.get_object_pos(pad=False).copy()
@@ -109,12 +116,14 @@ class AliceEnv(
                 reward -= self.parameters.simulation_params.penalty.get(
                     "objects_did_not_move", 0.0
                 )
+                self.valid_goal = False
             elif "objects_off_table" in info and info["objects_off_table"].any():
                 # If any object is off the table, we will end the episode
                 # Add a penalty to letting an object go off the table
                 reward -= self.parameters.simulation_params.penalty.get(
                     "objects_off_table", 0.0
                 )
+                self.valid_goal = False
             elif "objects_in_placement_area" in info and not info["objects_in_placement_area"].all():
                 # If any object is off the table, we will end the episode
                 done = True
@@ -126,6 +135,17 @@ class AliceEnv(
         if any(self.observe()["safety_stop"]):
             reward -= self.parameters.simulation_params.penalty.get("safety_stop", 0.0)
     
-        return reward, done 
+        return reward, done
+    
+    def get_simulation_info_reward_with_done(self):
+        info, env_reward, done = super().get_simulation_info_reward_with_done()
 
+        # Update info with valid/invalide goal setting
+        # and latest object pose
+        info["valid_goal"] = self.valid_goal
+        info["last_object_pos"] = self.mujoco_simulation.get_object_pos(pad=False).copy()
+        info["last_obj_quat"] = self.mujoco_simulation.get_object_quat(pad=False).copy()
+        return info, env_reward, done
+
+        
 make_env = AliceEnv.build
