@@ -112,6 +112,8 @@ class AliceEnv(
             )
 
         if done:
+            if "valid_goal" in info and info["valid_goal"]:
+                reward += 1.0
             if "objects_moved" in info and not info["objects_moved"]:
                 reward -= self.parameters.simulation_params.penalty.get(
                     "objects_did_not_move", 0.0

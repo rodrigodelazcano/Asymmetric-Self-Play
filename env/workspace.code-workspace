@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"name": "robogym",
+			"path": "../../robogym"
+		},
+		{
+			"name": "Asymmetric-Self-Play",
+			"path": ".."
+		},
+		{
+			"name": "Project_MUSE",
+			"path": "../../Project_MUSE"
+		},
+		{
+			"path": "../../final_project_ws"
+		}
+	],
+	"settings": {}
+}
