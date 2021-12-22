@@ -1,8 +1,8 @@
 from env import bob
 from env.alice import alice
+import numpy as np
 
-alice_env = alice.make_env(
-    
+alice_env = alice.make_env( 
     parameters={
         'simulation_params': {
             'num_objects': 1,
@@ -32,20 +32,28 @@ bob_env = bob.make_env(
         }
     }
 )
-alice_env.reset()
-bob_env.reset()
-done = False
 
 
-while not done:
 
+
+while True:
+
+    alice_env.reset()
+    while not done:
+        # Alice environment
+    
+    bob_env.set_initial_state_and_goal_pose()
+    bob_env.reset()
+    while not done:
+        # Bov environment
+    
     action = bob_env.action_space.sample()
     obs, reward, done, info = bob_env.step(action)
     bob_env.render()
 
-    action = alice_env.action_space.sample()
-    alice_env.step(action)
-    alice_env.render()
+    # action = alice_env.action_space.sample()
+    # alice_env.step(action)
+    # alice_env.render()
 
     # print('obs: ', obs)
     # print('reward: ', reward)

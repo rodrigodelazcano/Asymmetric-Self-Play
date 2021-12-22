@@ -46,13 +46,7 @@ class BobEnv(
     )
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
-        init_quats = np.array([[1, 0, 0, 0]] * self.mujoco_simulation.num_objects)
-        init_pos, _= self._generate_object_placements()
 
-        assert init_pos.shape == (self.mujoco_simulation.num_objects, 3)
-        assert init_quats.shape == (self.mujoco_simulation.num_objects, 4)
-        self.set_initial_state_and_goal_pose(init_pos=init_pos, init_quat=init_quats, goal_pos=, goal_quat=)
     def _sample_object_colors(self, num_groups: int):
         return self._random_state.permutation(self.OBJECT_COLORS)[:num_groups]
 
