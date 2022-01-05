@@ -53,7 +53,7 @@ class AliceEnv(
         self.initial_object_quat = self.mujoco_simulation.get_object_quat(pad=False).copy()
 
         self.valid_goal = True
-    
+  
     def check_objects_moved_from_init_pose(self) -> bool:
         current_object_pos = self.mujoco_simulation.get_object_pos(pad=False).copy()
         current_object_quat = self.mujoco_simulation.get_object_quat(pad=False).copy()
@@ -146,7 +146,7 @@ class AliceEnv(
         # and latest object pose
         info["valid_goal"] = self.valid_goal
         info["last_object_pos"] = self.mujoco_simulation.get_object_pos(pad=False).copy()
-        info["last_obj_quat"] = self.mujoco_simulation.get_object_quat(pad=False).copy()
+        info["last_object_quat"] = self.mujoco_simulation.get_object_quat(pad=False).copy()
         return info, env_reward, done
 
         
