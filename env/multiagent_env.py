@@ -50,12 +50,14 @@ class AsymMultiAgent(MultiAgentEnv):
 
         self.goal_setting = 0
         self.dones = dict.fromkeys(self.agents, False)
+
+        self.episode = 0
     
     def reset(self):
+        self.episode += 1
         self.goal_setting = 0
         self.dones = dict.fromkeys(self.agents, False)
         alice_init_obs = self.envs["alice"].reset()['robot_joint_pos']
-
         # Only reset alice env. Trainer computes actions only for agents in the observation dict.
         return {"alice": alice_init_obs}
     
@@ -66,14 +68,10 @@ class AsymMultiAgent(MultiAgentEnv):
         info_d = {}
 
         done_d["__all__"] = False
-
-        print('action dictionary: ', action_dict)
         if not action_dict:
             obs = self.envs["alice"].reset()['robot_joint_pos']
             return obs_d, rew_d, done_d, info_d       
         for agent, action in action_dict.items():
-            print(agent)
-            print(action)
             obs, reward, done, info = self.envs[agent].step(action)
             rew_d[agent] = reward
 
@@ -98,7 +96,7 @@ class AsymMultiAgent(MultiAgentEnv):
                             done_d["__all__"] = True
                         else:
                             obs_d[agent] = self.envs[agent].reset()['robot_joint_pos']
-                            info_d[agent] = info
+                            # info_d[agent] = info
             
                     return obs_d, rew_d, done_d, info_d
 
@@ -111,7 +109,7 @@ class AsymMultiAgent(MultiAgentEnv):
                     rew_d["alice"] = 5
                     self.dones["bob"] = True
                     done_d["bob"] = True
-                    info_d["bob"] = info
+                    # info_d["bob"] = info
                     return obs_d, rew_d, done_d, info_d
 
                 if self.goal_setting >= 5:
@@ -121,7 +119,7 @@ class AsymMultiAgent(MultiAgentEnv):
                     # What happens if I return an empty obs ? 
             
             obs_d[agent] = obs['robot_joint_pos']
-            info_d[agent] = info
+            # info_d[agent] = info
 
         return obs_d, rew_d, done_d, info_d
                     

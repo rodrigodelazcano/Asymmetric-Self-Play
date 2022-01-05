@@ -25,5 +25,5 @@ worker = RolloutWorker(env_creator=lambda _: AsymMultiAgent(
                 )
 
 
-
-print(worker.sample())
+sample = worker.sample()
+print(sample)

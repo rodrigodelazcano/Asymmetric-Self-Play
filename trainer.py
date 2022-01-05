@@ -44,7 +44,8 @@ observation_space = spaces.Box(low=np.array([-6.5]*6), high=np.array([6.5]*6),dt
 action_space = spaces.MultiDiscrete(np.array([11]*6))
 
 config = {
-    "num_workers": 1,
+    "num_workers": 2,
+    "num_envs_per_worker": 1,
     "batch_mode": "truncate_episodes",
     "framework": "torch",
     "multiagent": {
