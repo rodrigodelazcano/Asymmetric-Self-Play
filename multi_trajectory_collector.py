@@ -595,18 +595,33 @@ class MultiTrajectoryCollector(SampleCollector):
         agent_key = (episode_id, agent_id)
         assert self.agent_key_to_policy_id[agent_key] == policy_id
         assert agent_key in self.agent_collectors
-        print('VALUES: ', values)
+        
         self.agent_steps[episode_id] += 1
 
         # Include the current agent id for multi-agent algorithms.
         if agent_id != _DUMMY_AGENT_ID:
             values["agent_id"] = agent_id
+        
+        print('AGENT ID: ', agent_id)
+        if values['infos'].get('new_traj') is not None:
+            if values['infos']['new_traj']:
+                policy = self.policy_map[policy_id]
+                view_reqs = policy.model.view_requirements if \
+                getattr(policy, "model", None) else policy.view_requirements
+                self.agent_collectors[agent_key].append(_AgentCollector(view_reqs, policy))
 
-        # Add action/reward/next-obs (and other data) to Trajectory.
-        self.agent_collectors[agent_key][-1].add_action_reward_next_obs(values)
-
-        # if agent_done:
-
+                episode = self.episodes[episode_id]
+                self.agent_collectors[agent_key][-1].add_init_obs(
+                episode_id=episode.episode_id,
+                agent_index=episode._agent_index(agent_id),
+                env_id=env_id,
+                t=-1,
+                init_obs=values['new_obs'])
+            else:
+                # Add action/reward/next-obs (and other data) to Trajectory.
+                self.agent_collectors[agent_key][-1].add_action_reward_next_obs(values)
+        else:
+            self.agent_collectors[agent_key][-1].add_action_reward_next_obs(values)
 
         if not agent_done:
             self._add_to_next_inference_call(agent_key)
@@ -729,6 +744,7 @@ class MultiTrajectoryCollector(SampleCollector):
         #  batches from the same policy to the postprocess methods.
         # Build SampleBatches for the given episode.
         pre_batches = {}
+        print('AGENT COLLECTORS: ', self.agent_collectors)
         for (eps_id, agent_id), collector in self.agent_collectors.items():
             # Build only if there is data and agent is part of given episode.
             if collector[-1].agent_steps == 0 or eps_id != episode_id:
@@ -750,6 +766,7 @@ class MultiTrajectoryCollector(SampleCollector):
                     a_max=self.clip_rewards)
 
         post_batches = {}
+        print('PRE BATCHES: ', pre_batches)
         for agent_id, (_, pre_batch) in pre_batches.items():
             # Entire episode is said to be done.
             # Error if no DONE at end of this agent's trajectory.
@@ -791,7 +808,7 @@ class MultiTrajectoryCollector(SampleCollector):
             logger.info(
                 "Trajectory fragment after postprocess_trajectory():\n\n{}\n".
                 format(summarize(post_batches)))
-
+        print('POST_PROCESS BATCH: ', post_batches)
         # Append into policy batches and reset.
         from ray.rllib.evaluation.rollout_worker import get_global_worker
         for agent_id, post_batch in sorted(post_batches.items()):
