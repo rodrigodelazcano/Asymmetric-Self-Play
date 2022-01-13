@@ -62,6 +62,11 @@ class BobEnv(
         self.goal_pos = goal_pos
         self.goal_quat = goal_quat
 
+    def step(self, action):
+        obs, reward, done, info = super().step(action)
+
+        return obs, np.sum(reward), done, info
+    
     def _reset(self):
         super()._reset()
         self.mujoco_simulation.set_object_pos(self.init_pos)
