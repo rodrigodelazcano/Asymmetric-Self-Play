@@ -142,7 +142,6 @@ class _AgentCollector:
         if self.unroll_id is None:
             self.unroll_id = _AgentCollector._next_unroll_id
             _AgentCollector._next_unroll_id += 1
-
         # Next obs -> obs.
         assert SampleBatch.OBS not in values
         values[SampleBatch.OBS] = values[SampleBatch.NEXT_OBS]
@@ -198,6 +197,7 @@ class _AgentCollector:
         batch_data = {}
         np_data = {}
         for view_col, view_req in view_requirements.items():
+
             # Create the batch of data from the different buffers.
             data_col = view_req.data_col or view_col
 
@@ -209,6 +209,7 @@ class _AgentCollector:
             # OBS are already shifted by -1 (the initial obs starts one ts
             # before all other data columns).
             obs_shift = -1 if data_col == SampleBatch.OBS else 0
+            
 
             # Keep an np-array cache so we don't have to regenerate the
             # np-array for different view_cols using to the same data_col.
@@ -224,6 +225,7 @@ class _AgentCollector:
             #  buffer=[-3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
             #  resulting data=[[-3, -2, -1], [7, 8, 9]]
             #  Range of 3 consecutive items repeats every 10 timesteps.
+
             if view_req.shift_from is not None:
                 # Batch repeat value > 1: Only repeat the shift_from/to range
                 # every n timesteps.
@@ -294,6 +296,7 @@ class _AgentCollector:
                 # Shift is exactly 0: Use trajectory as is.
                 elif shift == 0:
                     data = [d[self.shift_before:] for d in np_data[data_col]]
+
                 # Shift is positive: We still need to 0-pad at the end.
                 elif shift > 0:
                     data = [
@@ -324,7 +327,6 @@ class _AgentCollector:
 
         # Due to possible batch-repeats > 1, columns in the resulting batch
         # may not all have the same batch size.
-
         batch = SampleBatch(batch_data)
 
         # Adjust the seq-lens array depending on the incoming agent sequences.
@@ -492,8 +494,6 @@ class MultiTrajectoryCollector(SampleCollector):
         self.agent_collectors: Dict[Tuple[EpisodeID, AgentID],
                                     _AgentCollector] = {}
 
-        ## TRAJECTORY COLLECTOR ##
-        self.agent_trajectory_collector: Dict[Tuple[EpisodeID, AgentID, TrajectoryID]]
         # Internal agent-key-to-policy-id map.
         self.agent_key_to_policy_id = {}
         # Pool of used/unused PolicyCollectorGroups (attached to episodes for
@@ -571,6 +571,11 @@ class MultiTrajectoryCollector(SampleCollector):
         
         # Create a list to store episode trajectories
         self.agent_collectors[agent_key] = [_AgentCollector(view_reqs, policy)]
+
+        # Create a buffer for behavioral clonning in the current episode id
+        # if agent_key[1] == 'bob':
+        #     self.agent_collectors[(episode.episode_id, 'abc_buffer')] = []
+
         self.agent_collectors[agent_key][-1].add_init_obs(
             episode_id=episode.episode_id,
             agent_index=episode._agent_index(agent_id),
@@ -601,10 +606,12 @@ class MultiTrajectoryCollector(SampleCollector):
         # Include the current agent id for multi-agent algorithms.
         if agent_id != _DUMMY_AGENT_ID:
             values["agent_id"] = agent_id
+        # Append alice last trajectory to ABC buffer when bob is completely done for behavioral clonning
+        # if values['infos'].get('is_bob_done') is not None and values['infos'].get('is_bob_done'):
+        #     alice_last_traj = self.agent_collectors[(episode_id, 'alice')][-1]
+        #     self.agent_collectors[(episode_id, 'abc_buffer')].append(alice_last_traj)            
         
-        print('AGENT ID: ', agent_id)
-        if values['infos'].get('new_traj') is not None:
-            if values['infos']['new_traj']:
+        if values['infos'].get('new_traj') is not None and values['infos'].get('new_traj'):
                 policy = self.policy_map[policy_id]
                 view_reqs = policy.model.view_requirements if \
                 getattr(policy, "model", None) else policy.view_requirements
@@ -617,9 +624,6 @@ class MultiTrajectoryCollector(SampleCollector):
                 env_id=env_id,
                 t=-1,
                 init_obs=values['new_obs'])
-            else:
-                # Add action/reward/next-obs (and other data) to Trajectory.
-                self.agent_collectors[agent_key][-1].add_action_reward_next_obs(values)
         else:
             self.agent_collectors[agent_key][-1].add_action_reward_next_obs(values)
 
@@ -744,71 +748,84 @@ class MultiTrajectoryCollector(SampleCollector):
         #  batches from the same policy to the postprocess methods.
         # Build SampleBatches for the given episode.
         pre_batches = {}
-        print('AGENT COLLECTORS: ', self.agent_collectors)
         for (eps_id, agent_id), collector in self.agent_collectors.items():
-            # Build only if there is data and agent is part of given episode.
-            if collector[-1].agent_steps == 0 or eps_id != episode_id:
-                continue
+ 
             pid = self.agent_key_to_policy_id[(eps_id, agent_id)]
             policy = self.policy_map[pid]
-            pre_batch = collector[-1].build(policy.view_requirements)
-            pre_batches[agent_id] = (policy, pre_batch)
+            pre_batches[agent_id] = (policy, [])
+            for trajectory_collector in collector:
+            # Build only if there is data and agent is part of given episode.
+                if trajectory_collector.agent_steps == 0 or eps_id != episode_id:
+                    continue
 
+                pre_batch = trajectory_collector.build(policy.view_requirements)
+                pre_batches[agent_id][1].append(pre_batch)
         # Apply reward clipping before calling postprocessing functions.
         if self.clip_rewards is True:
-            for _, (_, pre_batch) in pre_batches.items():
-                pre_batch["rewards"] = np.sign(pre_batch["rewards"])
+            for _,  trajectories in pre_batches.items():
+                for pre_batch in trajectories:
+                    pre_batch["rewards"] = np.sign(pre_batch["rewards"])
         elif self.clip_rewards:
-            for _, (_, pre_batch) in pre_batches.items():
-                pre_batch["rewards"] = np.clip(
-                    pre_batch["rewards"],
-                    a_min=-self.clip_rewards,
-                    a_max=self.clip_rewards)
-
+            for _,  trajectories in pre_batches.items():
+                for pre_batch in trajectories:
+                    pre_batch["rewards"] = np.clip(
+                        pre_batch["rewards"],
+                        a_min=-self.clip_rewards,
+                        a_max=self.clip_rewards)
         post_batches = {}
-        print('PRE BATCHES: ', pre_batches)
-        for agent_id, (_, pre_batch) in pre_batches.items():
+        for agent_id, (_, trajectories) in pre_batches.items():
             # Entire episode is said to be done.
             # Error if no DONE at end of this agent's trajectory.
-            if is_done and check_dones and \
-                    not pre_batch[SampleBatch.DONES][-1]:
-                raise ValueError(
-                    "Episode {} terminated for all agents, but we still "
-                    "don't have a last observation for agent {} (policy "
-                    "{}). ".format(
-                        episode_id, agent_id, self.agent_key_to_policy_id[(
-                            episode_id, agent_id)]) +
-                    "Please ensure that you include the last observations "
-                    "of all live agents when setting done[__all__] to "
-                    "True. Alternatively, set no_done_at_end=True to "
-                    "allow this.")
-
-            if len(pre_batches) > 1:
-                other_batches = pre_batches.copy()
-                del other_batches[agent_id]
-            else:
-                other_batches = {}
+            # Trajectories is a list of trajectories
+            
             pid = self.agent_key_to_policy_id[(episode_id, agent_id)]
             policy = self.policy_map[pid]
-            if any(pre_batch[SampleBatch.DONES][:-1]) or len(
-                    set(pre_batch[SampleBatch.EPS_ID])) > 1:
-                raise ValueError(
-                    "Batches sent to postprocessing must only contain steps "
-                    "from a single trajectory.", pre_batch)
-            # Call the Policy's Exploration's postprocess method.
-            post_batches[agent_id] = pre_batch
-            if getattr(policy, "exploration", None) is not None:
-                policy.exploration.postprocess_trajectory(
-                    policy, post_batches[agent_id], policy.get_session())
-            post_batches[agent_id].set_get_interceptor(None)
-            post_batches[agent_id] = policy.postprocess_trajectory(
-                post_batches[agent_id], other_batches, episode)
 
+            post_batches[agent_id] = []
+            
+            for pre_batch in trajectories:
+                # if is_done and check_dones and \
+                #         not pre_batch[SampleBatch.DONES][-1]:
+                #     raise ValueError(
+                #         "Episode {} terminated for all agents, but we still "
+                #         "don't have a last observation for agent {} (policy "
+                #         "{}). ".format(
+                #             episode_id, agent_id, self.agent_key_to_policy_id[(
+                #                 episode_id, agent_id)]) +
+                #         "Please ensure that you include the last observations "
+                #         "of all live agents when setting done[__all__] to "
+                #         "True. Alternatively, set no_done_at_end=True to "
+                #         "allow this.")
+
+                # DO I NEED THIS ?
+                #################
+                if len(pre_batches) > 1:
+                    other_batches = pre_batches.copy()
+                    del other_batches[agent_id]
+                else:
+                    other_batches = {}
+
+
+                if any(pre_batch[SampleBatch.DONES][:-1]) or len(
+                        set(pre_batch[SampleBatch.EPS_ID])) > 1:
+                    raise ValueError(
+                        "Batches sent to postprocessing must only contain steps "
+                        "from a single trajectory.", pre_batch)\
+
+                
+                # Call the Policy's Exploration's postprocess method.
+                post_batches[agent_id].append(pre_batch)
+                if getattr(policy, "exploration", None) is not None:
+                    policy.exploration.postprocess_trajectory(
+                        policy, post_batches[agent_id][-1], policy.get_session())
+                post_batches[agent_id][-1].set_get_interceptor(None)
+                post_batches[agent_id][-1] = policy.postprocess_trajectory(
+                    post_batches[agent_id][-1], other_batches, episode)
+            post_batches[agent_id] = SampleBatch.concat_samples(post_batches[agent_id])
         if log_once("after_post"):
             logger.info(
                 "Trajectory fragment after postprocess_trajectory():\n\n{}\n".
                 format(summarize(post_batches)))
-        print('POST_PROCESS BATCH: ', post_batches)
         # Append into policy batches and reset.
         from ray.rllib.evaluation.rollout_worker import get_global_worker
         for agent_id, post_batch in sorted(post_batches.items()):

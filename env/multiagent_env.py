@@ -4,7 +4,7 @@ from ray.rllib.env.multi_agent_env import MultiAgentEnv
 
 
 class AsymMultiAgent(MultiAgentEnv):
-    def __init__(self, alice_steps, bob_steps, n_objects) -> None:
+    def __init__(self, alice_steps=100, bob_steps=100, n_objects=1) -> None:
         
         alice_env = alice.make_env( 
             parameters={
@@ -57,8 +57,8 @@ class AsymMultiAgent(MultiAgentEnv):
         self.alice_step = 0
     
     def reset(self):
-        self.episode += 1
         self.goal_setting = 0
+        self.bob_done = False
         alice_init_obs = self.envs["alice"].reset()['robot_joint_pos']
         self.done_d = dict.fromkeys(self.done_d.keys(), False)
         # Only reset alice env. Trainer computes actions only for agents in the observation dict.
@@ -68,71 +68,74 @@ class AsymMultiAgent(MultiAgentEnv):
         obs_d = {}
         rew_d = {}
         info_d = {}
-        
-        # Start new multi-goal cycle
-        if not action_dict:
-            self.done_d["alice"] = False
-            obs = self.envs["alice"].reset()['robot_joint_pos']
-            obs_d['alice'] = obs
-            self.alice_step += 1
-            info_d = {'alice': {"new_traj": True}} 
-            return obs_d, rew_d, self.done_d, info_d   
 
         for agent, action in action_dict.items():
             obs, reward, done, info = self.envs[agent].step(action)
             rew_d[agent] = reward
             self.done_d[agent] = done
+            # if agent == 'alice':
+            obs_d[agent] = obs['robot_joint_pos']
+            # else:
+                # obs_d[agent] = {key : obs[key] for key in ["robot_joint_pos", 'gripper_pos']}
             info_d[agent] = {"new_traj": False}
 
-            if agent == "alice" and done: 
-                if info["valid_goal"]:
-                    self.goal_setting += 1
-                    # do only if bob is not done
-                    if not self.done_d["bob"]:
-                        init_pos = self.envs[agent].initial_object_pos
-                        init_quat = self.envs[agent].initial_object_quat
-                        goal_pos = info["last_object_pos"]
-                        goal_quat = info["last_object_quat"]
+            if agent == "alice" and done:
+                # if info["valid_goal"]:
+                # If bob is not done 
+                self.goal_setting += 1
+                print('GOAL SETTING: ', self.goal_setting)
+                if not self.bob_done:
+                    init_pos = self.envs[agent].initial_object_pos
+                    init_quat = self.envs[agent].initial_object_quat
+                    goal_pos = info["last_object_pos"]
+                    goal_quat = info["last_object_quat"]
 
-                        # set alice's initial and goal object pose in bob's environment
-                        self.envs["bob"].set_initial_state_and_goal_pose(init_pos, init_quat, goal_pos, goal_quat)
-                        obs = self.envs["bob"].reset()
+                    # set alice's initial and goal object pose in bob's environment
+                    self.envs["bob"].set_initial_state_and_goal_pose(init_pos, init_quat, goal_pos, goal_quat)
+                    obs = self.envs["bob"].reset()
+                    # obs_d["bob"] = {key : obs[key] for key in ["robot_joint_pos", 'gripper_pos']}
+                    obs_d["bob"] = obs['robot_joint_pos']
+                    self.done_d['bob'] = False
 
-                        obs_d["bob"] = obs['robot_joint_pos']
-                        info_d = {'bob': {"new_traj": True}}
-                    else:
-                        if self.goal_setting >= 5:
-
-                            self.done_d["bob"] = True
-                            self.done_d["alice"] = True
-                            self.done_d["__all__"] = True
-                            obs_d[agent] = obs
-                        else:
-                            obs_d[agent] = self.envs[agent].reset()['robot_joint_pos']
-                            info_d = {agent: {"new_traj": True}}
-                    return obs_d, rew_d, self.done_d, info_d
-
+                    info_d = {'bob': {"new_traj": True}, 'alice': {"is_bob_done": self.bob_done}}
+                # If bob is done for the rest of the episode because of incompleted goal
                 else:
-                    self.done_d["bob"] = True
-                    self.done_d["alice"] = True
-                    self.done_d["__all__"] = True
-
-            elif agent == "bob" and done:
-                if not obs['is_goal_achieved'][0]:
-                    rew_d["alice"] = 5
-                    self.done_d["bob"] = True
-                    # info_d["bob"] = info                    
-                    
+                    # Only iterate 5 times for goal settingddd
                     if self.goal_setting >= 5:
+
                         self.done_d["bob"] = True
                         self.done_d["alice"] = True
                         self.done_d["__all__"] = True
-                    info_d = {}
-                    # What happens if I return an empty obs ?
-                return obs_d, rew_d, self.done_d, info_d
+                    # Bob is done, generate new trajectory for alice
+                    else:
+                        obs_d[agent] = self.envs[agent].reset()['robot_joint_pos']
+                        self.done_d["alice"] = False
+                        info_d = {agent: {"new_traj": True}}
+                # If the final goal set by alice is not valid, end complete episode
+                # else:
+                #     print('not valid goal')
+                #     self.done_d["bob"] = True
+                #     self.done_d["alice"] = True
+                #     self.done_d["__all__"] = True
 
-            obs_d[agent] = obs['robot_joint_pos']
-
+            # When bob's trajectory is done
+            elif agent == "bob" and done:
+                # print('bob done')
+                # if not obs['is_goal_achieved'][0]:
+                #     rew_d["alice"] = 5
+                #     self.bob_done = True
+                #     # info_d["bob"] = info                    
+                    
+                # if self.goal_setting >= 5:
+                #     self.done_d["bob"] = True
+                #     self.done_d["alice"] = True
+                #     self.done_d["__all__"] = True
+                # else:
+                self.done_d['alice'] = False
+                obs = self.envs["alice"].reset()['robot_joint_pos']
+                obs_d['alice'] = obs
+                self.bob_done = True
+                info_d = {'alice': {"new_traj": True, "is_bob_done": self.bob_done}} 
         return obs_d, rew_d, self.done_d, info_d
                     
    
