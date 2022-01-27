@@ -33,7 +33,6 @@ action_space = spaces.MultiDiscrete(np.array([11]*6))
 
 # sample = worker.sample()
 
-# print(sample.policy_batches['alice']['eps_id'])
 
 # workers = self._make_workers(
 #                 env_creator=env_creator,
