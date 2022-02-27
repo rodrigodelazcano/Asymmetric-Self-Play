@@ -3,6 +3,7 @@ from gym.spaces import Space
 import logging
 import math
 import numpy as np
+import random
 import tree  # pip install dm_tree
 from typing import Any, Dict, List, Tuple, TYPE_CHECKING, Union
 
@@ -489,6 +490,7 @@ class MultiTrajectoryCollector(SampleCollector):
             1000, self.rollout_fragment_length *
             10) if self.rollout_fragment_length != float("inf") else 5000
 
+        self.episodes_per_batch = rollout_fragment_length
         # Whenever we observe a new episode+agent, add a new
         # _SingleTrajectoryCollector.
         self.agent_collectors: Dict[Tuple[EpisodeID, AgentID],
@@ -585,10 +587,15 @@ class MultiTrajectoryCollector(SampleCollector):
 
         self.episodes[episode.episode_id] = episode
         if episode.batch_builder is None:
+            if len(self.policy_collector_groups) > 0:
+                print('POLICY COLLECTOR GROUPS: ', self.policy_collector_groups[0])
+                print('ENV STEPS: ', self.policy_collector_groups[0].env_steps)
+                print('AGENT STEPS: ', self.policy_collector_groups[0].env_steps)
+                print('POLICY COLLECTOR: ', self.policy_collector_groups[0].policy_collectors)
+                print('ALICE POLICY COLLECTOR STEPS: ')
             episode.batch_builder = self.policy_collector_groups.pop() if \
                 self.policy_collector_groups else _PolicyCollectorGroup(
                 self.policy_map)
-
         self._add_to_next_inference_call(agent_key)
 
     @override(SampleCollector)
@@ -613,6 +620,7 @@ class MultiTrajectoryCollector(SampleCollector):
         
         if values['infos'].get('new_traj') is not None and values['infos'].get('new_traj'):
                 policy = self.policy_map[policy_id]
+                policy.new_episode_id = random.randrange(2e9)
                 view_reqs = policy.model.view_requirements if \
                 getattr(policy, "model", None) else policy.view_requirements
                 self.agent_collectors[agent_key].append(_AgentCollector(view_reqs, policy))
@@ -750,6 +758,7 @@ class MultiTrajectoryCollector(SampleCollector):
         pre_batches = {}
         for (eps_id, agent_id), collector in self.agent_collectors.items():
  
+            # print('AGENT COLLECTORS: ', self.agent_collectors)
             pid = self.agent_key_to_policy_id[(eps_id, agent_id)]
             policy = self.policy_map[pid]
             pre_batches[agent_id] = (policy, [])
