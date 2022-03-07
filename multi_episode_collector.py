@@ -326,10 +326,10 @@ logger = logging.getLogger(__name__)
 #         batch = SampleBatch(batch_data)
 
 #         # Adjust the seq-lens array depending on the incoming agent sequences.
-#         if self.policy.is_recurrent():
+#         if self.policy.is_recurrent():      # Check how to set policy recurrent
 #             seq_lens = []
-#             max_seq_len = self.policy.config["model"]["max_seq_len"]
-#             count = batch.count
+#             max_seq_len = self.policy.config["model"]["max_seq_len"]      # What is max_seq_len?
+#             count = batch.count                                           # batch.count
 #             while count > 0:
 #                 seq_lens.append(min(count, max_seq_len))
 #                 count -= max_seq_len
@@ -1135,8 +1135,7 @@ class MultiEpisodeCollector(SimpleListCollector):
                 self.policy_collector_groups[env_id].append(policy_collector_group)
         else:
             self.episode_steps[episode_id] = self.agent_steps[episode_id] = 0
-
+            
         # Build a MultiAgentBatch from the episode and return.
-
         if build and build_next_batch:
             return self._build_multi_agent_batch(episode)

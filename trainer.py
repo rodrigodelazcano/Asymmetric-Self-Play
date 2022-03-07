@@ -55,6 +55,7 @@ from gym import spaces
 import numpy as np
 import time
 from typing import Dict, Optional, TYPE_CHECKING
+from collections import OrderedDict
 
 
 class MyCallbacks(DefaultCallbacks):
@@ -79,10 +80,18 @@ register_env("asym_self_play",
                      alice_steps=100, bob_steps=200, n_objects=number_of_objects
                  ))
 
-ModelCatalog.register_custom_model("bob_torch_model", AsymModel)
+ModelCatalog.register_custom_model("asym_torch_model", AsymModel)
 
-# observation_space = {}
-observation_space_bob = spaces.Dict({
+robot_state_keys = ["robot_joint_pos", "gripper_pos"]
+obj_state_keys = ["obj_pos", "obj_rot", "obj_vel_pos", "obj_vel_rot", "obj_rel_pos", "obj_gripper_contact"]
+goal_state_keys = ["goal_obj_pos", "goal_obj_rot", "rel_goal_obj_pos", "rel_goal_obj_rot"]
+
+observation_spaces = {}
+observation_space_bob = OrderedDict({
+    "robot_joint_pos": spaces.Box(low=np.array([-6.5]*6), high=np.array([6.5]*6),dtype=np.float32),
+    "gripper_pos": spaces.Box(low=np.array([-np.inf]*3), high=np.array([np.inf]*3),dtype=np.float32),
+    })
+observation_space_alice = OrderedDict({
     "robot_joint_pos": spaces.Box(low=np.array([-6.5]*6), high=np.array([6.5]*6),dtype=np.float32),
     "gripper_pos": spaces.Box(low=np.array([-np.inf]*3), high=np.array([np.inf]*3),dtype=np.float32),
     })
@@ -91,7 +100,14 @@ for i in range(number_of_objects):
     observation_space_bob["obj_"+str(i)+"_state"] = \
         spaces.Box(low=np.array([-np.inf]*29), high=np.array([np.inf]*29), dtype=np.float32)
 
-observation_space = spaces.Box(low=np.array([-6.5]*6), high=np.array([6.5]*6),dtype=np.float32)
+for i in range(number_of_objects):
+    observation_space_alice["obj_"+str(i)+"_state"] = \
+        spaces.Box(low=np.array([-np.inf]*17), high=np.array([np.inf]*17), dtype=np.float32)
+
+observation_spaces["alice"] = spaces.Dict(sorted(observation_space_alice.items()))
+observation_spaces["bob"] = spaces.Dict(sorted(observation_space_bob.items()))
+
+# observation_space = spaces.Box(low=np.array([-6.5]*6), high=np.array([6.5]*6),dtype=np.float32)
 action_space = spaces.MultiDiscrete(np.array([11]*6))
 
 def policy_mapping_fn(agent_id, episode, worker, **kwargs):
@@ -103,52 +119,58 @@ def policy_mapping_fn(agent_id, episode, worker, **kwargs):
 def observation_fn(agent_obs, worker, base_env, policies, episode):
     return agent_obs
 
-bob_config = {
-    "model": {
-        "custom_model": "bob_torch_model",
-        "custom_model_config": {
-            "number_of_objects": number_of_objects
-        },
-        # # == LSTM ==
-        # # Whether to wrap the model with an LSTM.
-        # "use_lstm": False,
-        # # Max seq len for training the LSTM, defaults to 20.
-        # "max_seq_len": 20,
-        # # Size of the LSTM cell.
-        # "lstm_cell_size": 256,
-        # # Whether to feed a_{t-1} to LSTM (one-hot encoded if discrete).
-        # "lstm_use_prev_action": False,
-        # # Whether to feed r_{t-1} to LSTM.
-        # "lstm_use_prev_reward": False,
-        # # Whether the LSTM is time-major (TxBx..) or batch-major (BxTx..).
-        # "_time_major": False,
-    }
+agents = ["alice", "bob"]
+policy_configs = {
+    agent: {
+        "model": {
+            "custom_model": "asym_torch_model",
+            "custom_model_config": {
+                "number_of_objects": number_of_objects,
+                "num_model_outputs": 256,
+                "dict_obs_space": observation_spaces[agent],
+            },
+            # # == LSTM ==
+            # # Whether to wrap the model with an LSTM.
+            # "use_lstm": False,
+            # # Max seq len for training the LSTM, defaults to 20.
+            "max_seq_len": 20,
+            # # Size of the LSTM cell.
+            "lstm_cell_size": 256,
+            # # Whether to feed a_{t-1} to LSTM (one-hot encoded if discrete).
+            "lstm_use_prev_action": True,
+            # # Whether to feed r_{t-1} to LSTM.
+            "lstm_use_prev_reward": True,
+            # # Whether the LSTM is time-major (TxBx..) or batch-major (BxTx..).
+            "_time_major": False,
+        }
+    } for agent in agents
 }
 
 config = {
     "num_workers": 1,
-    "num_envs_per_worker": 3,
-    "rollout_fragment_length": 5000,
+    "num_envs_per_worker": 1,
+    "rollout_fragment_length": 1000,
     "batch_mode": "complete_episodes",
     "framework": "torch",
-    "train_batch_size": 40000,
+    "train_batch_size": 2000,
     "sgd_minibatch_size": 50,
     "multiagent": {
         "policies": {
-            "alice_policy": (PPOTorchPolicy, observation_space, action_space, {}),
+            "alice_policy": policy.PolicySpec(policy_class=PPOTorchPolicy,
+                                                observation_space=observation_spaces["alice"],
+                                                action_space=action_space,
+                                                config=policy_configs["alice"]),
             "bob_policy": policy.PolicySpec(policy_class=BobTorchPolicy, 
-                                                observation_space = observation_space_bob, 
-                                                action_space = action_space, 
-                                                config=bob_config
+                                                observation_space=observation_spaces["bob"], 
+                                                action_space=action_space, 
+                                                config=policy_configs["bob"]
                                             ),
-            # "bob_polic y": (PPOTorchPolicy, observation_space, action_space, {}),
         },
         "policy_mapping_fn": policy_mapping_fn,
         "observation_fn": observation_fn,
     },
     # "callbacks": MyCallbacks,
     "sample_collector": MultiEpisodeCollector,
-    "_disable_preprocessor_api": True,
 }   
 
 # Create our RLlib Trainer.
