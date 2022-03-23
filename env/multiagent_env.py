@@ -64,9 +64,10 @@ class AsymMultiAgent(MultiAgentEnv):
         self.episode = 0
 
         self.alice_step = 0
+
+        self.bob_done = False
     
     def reset(self):
-        self.bob_done = False
         obs = self.envs["alice"].reset()
         alice_init_obs = self._generate_observation_dictionary(obs, "alice")
         self.done_d = dict.fromkeys(self.done_d.keys(), False)
@@ -90,11 +91,13 @@ class AsymMultiAgent(MultiAgentEnv):
                 # If bob is not done 
                 self.goal_setting += 1
                 print('GOAL SETTING: ', self.goal_setting)
+                info_d[agent].update(info)
                 if not self.bob_done:
                     init_pos = self.envs[agent].initial_object_pos
                     init_quat = self.envs[agent].initial_object_quat
                     goal_pos = info["last_object_pos"]
                     goal_quat = info["last_object_quat"]
+
 
                     # set alice's initial and goal object pose in bob's environment
                     self.envs["bob"].set_initial_state_and_goal_pose(init_pos, init_quat, goal_pos, goal_quat)
@@ -110,7 +113,7 @@ class AsymMultiAgent(MultiAgentEnv):
                     self.done_d["alice"] = True
                     self.done_d["__all__"] = True
                     if self.goal_setting >= 5:
-                        info_d = {agent: {"build_next_batch": True}}
+                        info_d[agent]["build_next_batch"] = True
                         self.goal_setting = 0
                         # info_d = [agent]["build_next_batch"] = True
                     # Bob is done, generate new trajectory for alice
@@ -134,20 +137,24 @@ class AsymMultiAgent(MultiAgentEnv):
                 self.done_d["bob"] = True
                 self.done_d["alice"] = True
                 self.done_d["__all__"] = True
-                if self.goal_setting >= 5:
+                # simulate that bob was not able to solve the goal
+                if self.goal_setting > 2:
+                    self.bob_done = True
+                elif self.goal_setting >= 5:
                     self.goal_setting = 0
-                    info_d = {agent: {"build_next_batch": True}}
-                    
+                    info_d[agent]["build_next_batch"] = True
                 # else:
                 # self.done_d['alice'] = True
                 # self.done_d["__all__"] = True
                 # info_d = {'alice': {"new_traj": True, "is_bob_done": self.bob_done}}
+            info_d[agent].update({"bob_is_done": self.bob_done})
+            if info_d[agent]["build_next_batch"]:
+                self.bob_done = False
         return obs_d, rew_d, self.done_d, info_d
     
     def _generate_observation_dictionary(self, obs, agent):
         obs_dict = {key : obs[key] for key in ["robot_joint_pos", "gripper_pos"]}
         obj_state = np.concatenate(tuple([obs[key] for key in self.obj_state_keys]), axis=1)
-
         if agent == "bob":
             goal_state = np.concatenate(tuple([obs[key] for key in self.goal_state_keys]), axis=1)
             obj_state = np.concatenate((obj_state, goal_state), axis=1)

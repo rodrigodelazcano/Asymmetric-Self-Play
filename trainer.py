@@ -58,26 +58,26 @@ from typing import Dict, Optional, TYPE_CHECKING
 from collections import OrderedDict
 
 
-class MyCallbacks(DefaultCallbacks):
+# class MyCallbacks(DefaultCallbacks):
 
-    def on_episode_step(self, *, worker: RolloutWorker, base_env: BaseEnv, policies: Optional[Dict[PolicyID, Policy]] = None, episode: Episode, **kwargs) -> None:
-        # when new trajectory in agent set last_done to False (because it revives)
-        alice_policy = policies['alice_policy']
-        if alice_policy.new_episode_id is not None:
-            alice_policy.new_episode_id = None
-        for env_state in base_env.env_states:
-            all_agents_done = env_state.last_dones['__all__']
-            last_done_keys = env_state.last_dones.keys()
-            if not all_agents_done:
-                for ag in last_done_keys:
-                    if ag != '__all__' and env_state.last_dones[ag]:
-                        env_state.last_dones[ag] = False
+#     def on_episode_step(self, *, worker: RolloutWorker, base_env: BaseEnv, policies: Optional[Dict[PolicyID, Policy]] = None, episode: Episode, **kwargs) -> None:
+#         # when new trajectory in agent set last_done to False (because it revives)
+#         alice_policy = policies['alice_policy']
+#         if alice_policy.new_episode_id is not None:
+#             alice_policy.new_episode_id = None
+#         for env_state in base_env.env_states:
+#             all_agents_done = env_state.last_dones['__all__']
+#             last_done_keys = env_state.last_dones.keys()
+#             if not all_agents_done:
+#                 for ag in last_done_keys:
+#                     if ag != '__all__' and env_state.last_dones[ag]:
+#                         env_state.last_dones[ag] = False
 
 number_of_objects = 2
 
 register_env("asym_self_play",
                  lambda _: AsymMultiAgent(
-                     alice_steps=100, bob_steps=200, n_objects=number_of_objects
+                     alice_steps=103, bob_steps=200, n_objects=number_of_objects
                  ))
 
 ModelCatalog.register_custom_model("asym_torch_model", AsymModel)
@@ -107,6 +107,7 @@ for i in range(number_of_objects):
 observation_spaces["alice"] = spaces.Dict(sorted(observation_space_alice.items()))
 observation_spaces["bob"] = spaces.Dict(sorted(observation_space_bob.items()))
 
+
 # observation_space = spaces.Box(low=np.array([-6.5]*6), high=np.array([6.5]*6),dtype=np.float32)
 action_space = spaces.MultiDiscrete(np.array([11]*6))
 
@@ -116,8 +117,8 @@ def policy_mapping_fn(agent_id, episode, worker, **kwargs):
     else:
         return "bob_policy"
 
-def observation_fn(agent_obs, worker, base_env, policies, episode):
-    return agent_obs
+# def observation_fn(agent_obs, worker, base_env, policies, episode):
+#     return agent_obs
 
 agents = ["alice", "bob"]
 policy_configs = {
@@ -139,9 +140,10 @@ policy_configs = {
             # # Whether to feed a_{t-1} to LSTM (one-hot encoded if discrete).
             "lstm_use_prev_action": True,
             # # Whether to feed r_{t-1} to LSTM.
-            "lstm_use_prev_reward": True,
+            "lstm_use_prev_reward": True if agent == "alice" else False,
             # # Whether the LSTM is time-major (TxBx..) or batch-major (BxTx..).
             "_time_major": False,
+            # "_disable_preprocessor_api": True,
         }
     } for agent in agents
 }
@@ -153,7 +155,7 @@ config = {
     "batch_mode": "complete_episodes",
     "framework": "torch",
     "train_batch_size": 2000,
-    "sgd_minibatch_size": 50,
+    "sgd_minibatch_size": 60,
     "multiagent": {
         "policies": {
             "alice_policy": policy.PolicySpec(policy_class=PPOTorchPolicy,
@@ -167,10 +169,11 @@ config = {
                                             ),
         },
         "policy_mapping_fn": policy_mapping_fn,
-        "observation_fn": observation_fn,
+        # "observation_fn": observation_fn,
     },
     # "callbacks": MyCallbacks,
     "sample_collector": MultiEpisodeCollector,
+    # "_disable_preprocessor_api": True,
 }   
 
 # Create our RLlib Trainer.

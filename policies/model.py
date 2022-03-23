@@ -144,6 +144,8 @@ class AsymModel(TorchRNN, nn.Module):
         assert seq_lens is not None
         
         # Concat. prev-action/reward if required.
+        # print('SEQ LENS FORWARD: ', seq_lens)
+        # print('STATE SHAPE: ', state[0].shape)
         prev_a_r = []
         if self.model_config["lstm_use_prev_action"]:
             prev_a = one_hot(input_dict[SampleBatch.PREV_ACTIONS].float(),
@@ -171,7 +173,10 @@ class AsymModel(TorchRNN, nn.Module):
         z = torch.squeeze(z, dim=1)
         if prev_a_r:
             z = torch.cat([z] + prev_a_r, dim=1)
+
         inputs_lstm_pol = self._add_time_dimension_to_batch(z, seq_lens)
+        # print('STATE 0 SHAPE: ', torch.unsqueeze(state[0], 0).shape)
+        # print('INPUT LSTM SHAPE: ', inputs_lstm_pol.shape)
         self._features, [h_pol, c_pol] = self.lstm_pol(
             inputs_lstm_pol, [torch.unsqueeze(state[0], 0),
                               torch.unsqueeze(state[1], 0)]

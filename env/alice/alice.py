@@ -147,6 +147,7 @@ class AliceEnv(
         info["valid_goal"] = self.valid_goal
         info["last_object_pos"] = self.mujoco_simulation.get_object_pos(pad=False).copy()
         info["last_object_quat"] = self.mujoco_simulation.get_object_quat(pad=False).copy()
+        info["last_object_eul"] = self.mujoco_simulation.get_object_rot(pad=False).copy()
         return info, env_reward, done
 
         
