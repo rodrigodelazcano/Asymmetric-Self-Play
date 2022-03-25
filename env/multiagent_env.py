@@ -88,9 +88,10 @@ class AsymMultiAgent(MultiAgentEnv):
 
             if agent == "alice" and done:
                 # if info["valid_goal"]:
-                # If bob is not done 
+                # If bob is not done
+                rew_d["alice"] = 1
                 self.goal_setting += 1
-                print('GOAL SETTING: ', self.goal_setting)
+                # print('GOAL SETTING: ', self.goal_setting)
                 info_d[agent].update(info)
                 if not self.bob_done:
                     init_pos = self.envs[agent].initial_object_pos
@@ -133,7 +134,8 @@ class AsymMultiAgent(MultiAgentEnv):
                 # if not obs['is_goal_achieved'][0]:
                 #     rew_d["alice"] = 5
                 #     self.bob_done = True
-                #     # info_d["bob"] = info                    
+                #     # info_d["bob"] = info
+                rew_d["alice"] = 5                    
                 self.done_d["bob"] = True
                 self.done_d["alice"] = True
                 self.done_d["__all__"] = True

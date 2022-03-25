@@ -1,0 +1,8 @@
+2022-03-25 11:13:22,829 INFO    MainThread:244422 [internal.py:wandb_internal():92] W&B internal server running at pid: 244422, started at: 2022-03-25 11:13:22.828341
+2022-03-25 11:13:22,832 DEBUG   SenderThread:244422 [sender.py:send():235] send: header
+2022-03-25 11:13:22,832 INFO    WriterThread:244422 [datastore.py:open_for_write():77] open: /home/rodri/Asymmetric-Self-Play-main/wandb/run-20220325_111322-1bd84_00000/run-1bd84_00000.wandb
+2022-03-25 11:13:22,832 DEBUG   SenderThread:244422 [sender.py:send():235] send: run
+2022-03-25 11:13:22,840 INFO    SenderThread:244422 [sender.py:_maybe_setup_resume():492] checking resume status for None/Asymmetric_Self_Play/1bd84_00000
+2022-03-25 11:13:23,120 WARNING MainThread:244422 [internal.py:wandb_internal():155] Internal process interrupt: 1
+2022-03-25 11:13:23,321 WARNING MainThread:244422 [internal.py:wandb_internal():155] Internal process interrupt: 2
+2022-03-25 11:13:23,322 ERROR   MainThread:244422 [internal.py:wandb_internal():158] Internal process interrupted.

@@ -1,27 +1,16 @@
-import collections
 from gym.spaces import Space
 import logging
-import math
 import numpy as np
-import tree  # pip install dm_tree
-from typing import Any, Dict, List, Tuple, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Union
 
-from ray.rllib.env.base_env import _DUMMY_AGENT_ID
-from ray.rllib.evaluation.collectors.sample_collector import SampleCollector
 from ray.rllib.evaluation.episode import Episode
-from ray.rllib.policy.policy import Policy
 from ray.rllib.policy.policy_map import PolicyMap
 from ray.rllib.policy.sample_batch import SampleBatch, MultiAgentBatch
 from ray.rllib.utils.annotations import override
 from ray.rllib.utils.debug import summarize
-from ray.rllib.utils.framework import try_import_tf, try_import_torch
-from ray.rllib.utils.spaces.space_utils import get_dummy_batch_for_space
-from ray.rllib.utils.typing import AgentID, EpisodeID, EnvID, PolicyID, \
-    TensorType, ViewRequirementsDict
+from ray.rllib.utils.typing import AgentID, EnvID, PolicyID, \
+    TensorType
 from ray.util.debug import log_once
-
-# _, tf, _ = try_import_tf()
-# torch, _ = try_import_torch()
 
 if TYPE_CHECKING:
     from ray.rllib.agents.callbacks import DefaultCallbacks
@@ -86,21 +75,8 @@ class MultiEpisodeCollector(SimpleListCollector):
         # Build SampleBatches for the given episode.
         # for env_id in self.build_next_batch:
         pre_batches = {}
-        # agent collector has all the episode trajectories collect so far
-        # in AgentCollectors (trajectory of one Agent in one Episode)
+
         for (eps_id, agent_id), collector in self.agent_collectors.items():
-            # print('AGENT ID: ', agent_id)
-            # if agent_id == "alice":
-                # print('ALICE COLLECTOR OBS TYPE: ', type(collector.buffers['obs'][0][0]))
-                # print('ALICE COLLECTOR: ', collector.buffers.keys())
-                # print('ALICE COLLECTOR T: ', collector.buffers['t'])
-                # for i, state in enumerate(collector.buffers['state_out_0'][0]):
-                    # if state[0] == 0:
-                        # print('ELEMENT IDX: ', i)
-                        # print('STATE WITH 0 ELEMENT VALUE: ', state) 
-                # print('STATE OUT SIZE: ', collector.buffers['state_out_1'][0])
-                # print('OBS SIZE: ', type(collector.buffers['obs'][0][0]))
-            # Build only if there is data and agent is part of given episode.
             if collector.agent_steps == 0 or eps_id != episode_id:
                 continue
             pid = self.agent_key_to_policy_id[(eps_id, agent_id)]
@@ -122,12 +98,6 @@ class MultiEpisodeCollector(SimpleListCollector):
         post_batches = {}
         relable_demonstration = False
         for agent_id, (_, pre_batch) in pre_batches.items():
-            # print('PREBATCH: ', pre_batch)
-            # Entire episode is said to be done.
-            # Error if no DONE at end of this agent's trajectory.
-            # Check if we need to build the collected batches of current env
-            # if agent_id == 'alice':
-                # print('ALICE PREBATCH: ', pre_batch)
             build_next_batch = pre_batch[SampleBatch.INFOS][-1]["build_next_batch"]       
             relable_demonstration = pre_batch[SampleBatch.INFOS][-1]["bob_is_done"]
 
@@ -175,15 +145,9 @@ class MultiEpisodeCollector(SimpleListCollector):
         from ray.rllib.evaluation.rollout_worker import get_global_worker
         for agent_id, post_batch in sorted(post_batches.items()):
             # if agent_id == "alice":
-                # print('ALICE POST BATCH: ', post_batch)
-                # print('ALICE POSTBATCH OBS TYPE: ', type(post_batch['obs']))
-                # print('ALICE POST BATCH OBS SIZE: ', post_batch['obs'].shape)
-                # print('ALICE POST BATCH OBS: ', post_batch['obs'])
-                # print('ALICE POST BATCH STATE IN TYPE: ', type(post_batch['state_in_0']))
-                # print('ALCIE POST BATCH STATE SHAPE: ', post_batch['state_in_0'].shape)
+            #     print('ALICE POST BATCH: ', post_batch)
+            #     print('ALICE POSTBATCH OBS TYPE: ', post_batch['rewards'])
 
-                # print('ALICE POST BATCH SEQ LENS: ', post_batch[SampleBatch.SEQ_LENS])
-            
             agent_key = (episode_id, agent_id)
             pid = self.agent_key_to_policy_id[agent_key]
             policy = self.policy_map[pid]
@@ -205,19 +169,14 @@ class MultiEpisodeCollector(SimpleListCollector):
                 assert pid in self.policy_map
                 policy_collector_group[
                     pid] = _PolicyCollector(policy)
+
             policy_collector_group.policy_collectors[
                 pid].add_postprocessed_batch_for_training(
                     post_batch, policy.view_requirements)
-            # print('POST BATCH: ', post_batch)
-            # print('COUNT POST BATCH: ', post_batch.count)
-            # if post_batch.count > 30:
-            #     print('POST BATCH STATE 0 INITIAL: ', post_batch['state_in_0'].shape)
-            #     print('POST BATCH OBS SHAPE: ', post_batch['obs'].shape)
-
             if is_done:
                 del self.agent_key_to_policy_id[agent_key]
                 del self.agent_collectors[agent_key]
-        
+
         if relable_demonstration:
             alice_post_batch = policy_collector_group.policy_collectors["alice_policy"].batches[-1].copy()
             alice_observation_space = self.policy_map["alice_policy"].observation_space
@@ -235,24 +194,13 @@ class MultiEpisodeCollector(SimpleListCollector):
             del self.episode_steps[episode_id]
             del self.agent_steps[episode_id]
             del self.episodes[episode_id]
-            # Make PolicyCollectorGroup available for more agent batches in
-            # other episodes. Do not reset count to 0.
 
-            # -- policy_collector_group => _PolicyCollectorGroup(): one episodes batches keyed by policy
-            # create a EnvCollector to save PolicyCollectorGroup for each env+episode
             if policy_collector_group:
                 self.policy_collector_groups[env_id].append(policy_collector_group)
         else:
             self.episode_steps[episode_id] = self.agent_steps[episode_id] = 0
-        
-        # Relabel alice batch as bob batch
-        # if relabel_bc:
-            
-             
+
         # Build a MultiAgentBatch from the episode and return.
         if build and build_next_batch:
             return self._build_multi_agent_batch(episode)
-
-    def relable_demonstration(self, trajectory):
-        # Relable Alice trajectory as a Bob trajectory, goal-augmented.
-        pass
+    
