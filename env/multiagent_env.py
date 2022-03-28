@@ -103,7 +103,7 @@ class AsymMultiAgent(MultiAgentEnv):
                 if info["valid_goal"]:
                     print('ALICE SET VALID GOAL')
                     self.goal_setting += 1
-                    
+                    reward += 1.0
                     # If Bob has solved previous goal it is not done.
                     # Keep solving goals if not done, stop solving goals and
                     # implement Behavioral Cloning if done.

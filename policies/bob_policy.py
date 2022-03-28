@@ -1,3 +1,4 @@
+from email import policy
 import logging
 from typing import Dict, List, Type, Union
 import numpy as np
@@ -29,8 +30,6 @@ class BobTorchPolicy(PPOTorchPolicy):
         self.beta = config["ABC_loss_weight"]
         # Observation space shape
         self.obs_shape = observation_space.shape[0]
-        print('PPO CONFIG')
-        print(config)
         super().__init__(observation_space, action_space, config)        
 
     @override(PPOTorchPolicy)
@@ -73,9 +72,15 @@ class BobTorchPolicy(PPOTorchPolicy):
             
             def reduce_mean_valid_multi_loss(t, loss):
                 if loss == "bc":
-                    return torch.sum(t[bc_mask]) / bc_num_valid
+                    if bc_num_valid != 0:
+                        return torch.sum(t[bc_mask]) / bc_num_valid
+                    else:
+                        return torch.tensor([0.0], requires_grad=False, device=self.device)
                 else:
-                    return torch.sum(t[ppo_mask]) / ppo_num_valid
+                    if ppo_num_valid != 0:
+                        return torch.sum(t[ppo_mask]) / ppo_num_valid
+                    else:
+                        return torch.tensor([0.0],  requires_grad=False, device=self.device)
                 
 
         # non-RNN case: No masking.
@@ -122,12 +127,14 @@ class BobTorchPolicy(PPOTorchPolicy):
         else:
             vf_loss = mean_vf_loss = 0.0
 
-        total_loss = reduce_mean_valid_multi_loss(-surrogate_loss +
+        policy_loss = reduce_mean_valid_multi_loss(-surrogate_loss +
                                        self.kl_coeff * action_kl +
                                        self.config["vf_loss_coeff"] * vf_loss -
-                                       self.entropy_coeff * curr_entropy, loss="ppo") +\
-                        self.beta*reduce_mean_valid_multi_loss(-surrogate_loss, loss="bc") 
+                                       self.entropy_coeff * curr_entropy, loss="ppo")
+        bc_loss = self.beta*reduce_mean_valid_multi_loss(-surrogate_loss, loss="bc") 
 
+        total_loss =  policy_loss + bc_loss
+                        
         # Store values for stats function in model (tower), such that for
         # multi-GPU, we do not override them during the parallel loss phase.
         model.tower_stats["total_loss"] = total_loss
