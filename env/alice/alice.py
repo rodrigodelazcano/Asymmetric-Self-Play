@@ -55,12 +55,13 @@ class AliceEnv(
         self.valid_goal = True
   
     def check_objects_moved_from_init_pose(self) -> bool:
+        
         current_object_pos = self.mujoco_simulation.get_object_pos(pad=False).copy()
         current_object_quat = self.mujoco_simulation.get_object_quat(pad=False).copy()
 
         if (
-            np.allclose(current_object_pos, self.initial_object_pos, atol=1e-05) and 
-            np.allclose(current_object_quat, self.initial_object_quat, atol=1e-05)
+            np.allclose(current_object_pos, self.initial_object_pos, atol=self.constants.move_threshold["obj_pos"]) and 
+            np.allclose(current_object_quat, self.initial_object_quat, atol=self.constants.move_threshold["obj_rot"])
             ):
 
             return False
@@ -127,8 +128,6 @@ class AliceEnv(
                 )
                 self.valid_goal = False
             elif "objects_in_placement_area" in info and not info["objects_in_placement_area"].all():
-                # If any object is off the table, we will end the episode
-                done = True
                 # Add a penalty to letting an object go out of the placement area
                 reward -= self.parameters.simulation_params.penalty.get(
                     "object_out_placement_area", 0.0

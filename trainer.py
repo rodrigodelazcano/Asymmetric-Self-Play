@@ -10,7 +10,7 @@ from gym import spaces
 import numpy as np
 import os
 from collections import OrderedDict
-from ray.tune.integration.wandb import WandbLoggerCallback, WandbLogger
+from ray.tune.integration.wandb import WandbLoggerCallback
 from ray import tune
 import ray
 
@@ -18,7 +18,7 @@ number_of_objects = 2
 
 register_env("asym_self_play",
                  lambda _: AsymMultiAgent(
-                     alice_steps=103, bob_steps=200, n_objects=number_of_objects
+                     alice_steps=100, bob_steps=200, n_objects=number_of_objects
                  ))
 
 ModelCatalog.register_custom_model("asym_torch_model", AsymModel)
@@ -89,7 +89,12 @@ policy_configs = {
             "_time_major": False,
             # "_disable_preprocessor_api": True,
         },
-        "beta": 0.5 if agent=="bob" else None
+        "gamma": 0.998,
+        "lr": 3e-4,
+        "lambda": 0.95,
+        "entropy_coeff": 0.01,
+        "clip_param": 0.2,
+        "ABC_loss_weight": 0.5 if agent=="bob" else None
     } for agent in agents
 }
 
@@ -97,17 +102,12 @@ config = {
     "env": "asym_self_play",
     "num_workers": 1,
     "num_envs_per_worker": 1,
+    "num_gpus": 1,
     "rollout_fragment_length": 1000,
     "batch_mode": "complete_episodes",
     "framework": "torch",
     "train_batch_size": 2000,
     "sgd_minibatch_size": 60,
-    "logger_config": {
-            "wandb": {
-                "project": "Asymmetric_Self_Play",
-                "api_key": "1f77142634341e49c67a4f09fffb3bd79abc4f71",
-            }
-    },
     "multiagent": {
         "policies": {
             "alice_policy": policy.PolicySpec(policy_class=PPOTorchPolicy,
@@ -126,11 +126,14 @@ config = {
 }   
 
 stop = {
-        "training_iteration": 5,
+        "training_iteration": 10,
         "timesteps_total": 100000,
         "episode_reward_mean": 200.0,
     }
 
-results = tune.run("PPO", config=config, stop=stop, checkpoint_freq=1, checkpoint_at_end=True, loggers=[WandbLogger])
+results = tune.run("PPO", config=config, stop=stop, checkpoint_freq=500, checkpoint_at_end=True, callbacks=[WandbLoggerCallback(
+        project="AsymmetricSelfPlay",
+        api_key_file="wandb_api_key",
+        log_config=False)])
 
 ray.shutdown()

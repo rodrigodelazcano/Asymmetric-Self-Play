@@ -26,9 +26,11 @@ class BobTorchPolicy(PPOTorchPolicy):
     @override(PPOTorchPolicy)
     def __init__(self, observation_space, action_space, config):
         # Constant behavioral clonning
-        self.beta = config["beta"]
+        self.beta = config["ABC_loss_weight"]
         # Observation space shape
         self.obs_shape = observation_space.shape[0]
+        print('PPO CONFIG')
+        print(config)
         super().__init__(observation_space, action_space, config)        
 
     @override(PPOTorchPolicy)
@@ -235,6 +237,8 @@ class BobTorchPolicy(PPOTorchPolicy):
 
             state_out = None
             for i, batch in enumerate(input_batch_list):
+                if (SampleBatch.PREV_REWARDS in batch.keys()) and (not self.config["model"]["lstm_use_prev_reward"]):
+                    del batch[SampleBatch.PREV_REWARDS]
                 input_batch = self._lazy_tensor_dict(batch)
                 if i != 0:
                     for j, state in enumerate(state_out):

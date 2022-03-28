@@ -146,6 +146,8 @@ class BaseEnvConstants(RobotEnvConstants):
 
     stabilize_objects: bool = True
 
+    move_threshold: dict = {"obj_pos": 0.04, "obj_rot": 0.2}
+
 
 @attr.s(auto_attribs=True)
 class BaseRobotControlParameters(RobotControlParameters):

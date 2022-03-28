@@ -97,9 +97,10 @@ class MultiEpisodeCollector(SimpleListCollector):
 
         post_batches = {}
         relable_demonstration = False
+        build_next_batch = False
         for agent_id, (_, pre_batch) in pre_batches.items():
-            build_next_batch = pre_batch[SampleBatch.INFOS][-1]["build_next_batch"]       
-            relable_demonstration = pre_batch[SampleBatch.INFOS][-1]["bob_is_done"]
+            build_next_batch += pre_batch[SampleBatch.INFOS][-1]["build_next_batch"]       
+            relable_demonstration += pre_batch[SampleBatch.INFOS][-1]["bob_is_done"]
 
             if is_done and check_dones and \
                     not pre_batch[SampleBatch.DONES][-1]:
@@ -134,7 +135,6 @@ class MultiEpisodeCollector(SimpleListCollector):
             post_batches[agent_id].set_get_interceptor(None)
             post_batches[agent_id] = policy.postprocess_trajectory(
                 post_batches[agent_id], other_batches, episode)
-            # print('POST BATCH: ', post_batches[agent_id])
 
         if log_once("after_post"):
             logger.info(
@@ -144,9 +144,6 @@ class MultiEpisodeCollector(SimpleListCollector):
         # Append into policy batches and reset.
         from ray.rllib.evaluation.rollout_worker import get_global_worker
         for agent_id, post_batch in sorted(post_batches.items()):
-            # if agent_id == "alice":
-            #     print('ALICE POST BATCH: ', post_batch)
-            #     print('ALICE POSTBATCH OBS TYPE: ', post_batch['rewards'])
 
             agent_key = (episode_id, agent_id)
             pid = self.agent_key_to_policy_id[agent_key]
@@ -178,6 +175,7 @@ class MultiEpisodeCollector(SimpleListCollector):
                 del self.agent_collectors[agent_key]
 
         if relable_demonstration:
+            print('RELABLING ALICE TRAJECTORY')
             alice_post_batch = policy_collector_group.policy_collectors["alice_policy"].batches[-1].copy()
             alice_observation_space = self.policy_map["alice_policy"].observation_space
             bob_bc_post_batch = self.policy_map["bob_policy"].relable_demonstration(alice_post_batch, alice_observation_space)
@@ -202,5 +200,6 @@ class MultiEpisodeCollector(SimpleListCollector):
 
         # Build a MultiAgentBatch from the episode and return.
         if build and build_next_batch:
+            print('BUILDING A NEXT BATCH')
             return self._build_multi_agent_batch(episode)
     
