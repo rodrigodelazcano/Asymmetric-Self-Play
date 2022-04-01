@@ -255,10 +255,11 @@ class BobTorchPolicy(PPOTorchPolicy):
                 logits, state_out = self.model(input_batch)
 
                 for j, state in enumerate(state_out):
-                    input_batch["state_out_" + str(j)] = state           
+                    input_batch["state_out_" + str(j)] = state          
                 action_dist = dist_class(logits, self.model)
                 input_batch[SampleBatch.ACTION_LOGP] = action_dist.logp(input_batch[SampleBatch.ACTIONS])
                 input_batch[SampleBatch.AGENT_INDEX] = torch.add(input_batch[SampleBatch.AGENT_INDEX], 2)
+                input_batch_list[i] = convert_to_numpy(input_batch)
 
         return SampleBatch.concat_samples(input_batch_list)
 

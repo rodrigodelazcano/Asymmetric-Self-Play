@@ -50,15 +50,15 @@ class AsymMultiAgent(MultiAgentEnv):
             }
         )
 
-        self.agents = ['alice', 'bob']
+        self._agent_ids = ['alice', 'bob']
         envs = [alice_env, bob_env]
 
         self.n_obj = n_objects
 
-        self.envs = dict(zip(self.agents, envs))
+        self.envs = dict(zip(self._agent_ids, envs))
 
         self.goal_setting = 0
-        self.done_d = dict.fromkeys(self.agents, False)
+        self.done_d = dict.fromkeys(self._agent_ids, False)
         self.done_d["__all__"] = False
 
         self.robot_state_keys = ["robot_joint_pos", "gripper_pos"]
@@ -171,8 +171,6 @@ class AsymMultiAgent(MultiAgentEnv):
                     rew_d["alice"] += 5
                     print('BOB DID NOT ACHIEVE GOAL')
                     self.bob_done = True
-                else:
-                    rew_d[agent] += 5
                 
                 if self.goal_setting >= 5:
                     self.goal_setting = 0

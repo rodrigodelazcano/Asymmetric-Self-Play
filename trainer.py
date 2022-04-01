@@ -89,25 +89,29 @@ policy_configs = {
             "_time_major": False,
             # "_disable_preprocessor_api": True,
         },
+
         "gamma": 0.998,
         "lr": 3e-4,
         "lambda": 0.95,
         "entropy_coeff": 0.01,
         "clip_param": 0.2,
-        "ABC_loss_weight": 0.5 if agent=="bob" else None
+        "ABC_loss_weight": 0.5 if agent=="bob" else None,
     } for agent in agents
 }
+
 
 config = {
     "env": "asym_self_play",
     "num_workers": 1,
     "num_envs_per_worker": 1,
     "num_gpus": 1,
-    "rollout_fragment_length": 1000,
+    "rollout_fragment_length": 4096,
     "batch_mode": "complete_episodes",
     "framework": "torch",
-    "train_batch_size": 2000,
-    "sgd_minibatch_size": 60,
+    "train_batch_size": 40960,
+    "sgd_minibatch_size": 128,
+    # sample reuse or epochs per training iterations
+    "num_sgd_iter": 3,
     "multiagent": {
         "policies": {
             "alice_policy": policy.PolicySpec(policy_class=PPOTorchPolicy,
@@ -126,8 +130,8 @@ config = {
 }   
 
 stop = {
-        "training_iteration": 10,
-        "timesteps_total": 100000,
+        "training_iteration": 50000,
+        "timesteps_total": 1000000,
         "episode_reward_mean": 200.0,
     }
 

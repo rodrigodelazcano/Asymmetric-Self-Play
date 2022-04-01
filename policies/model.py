@@ -122,7 +122,7 @@ class AsymModel(TorchRNN, nn.Module):
             self.obj_state_emb_vf["obj_"+str(i)+"_state"] = \
                 EmbeddingFC(self.dict_obs_space["obj_"+str(i)+"_state"].shape[0], 512, permutation_invariant=True)
 
-        self.sum_vf = SumLayer(in_size=2+self.n_obj)
+        self.sum_vf = SumLayer(in_size = 2 + self.n_obj)
         self._value_branch = SlimFC(
             in_size=self.cell_size,
             out_size=1,
@@ -144,8 +144,6 @@ class AsymModel(TorchRNN, nn.Module):
         assert seq_lens is not None
         
         # Concat. prev-action/reward if required.
-        # print('SEQ LENS FORWARD: ', seq_lens)
-        # print('STATE SHAPE: ', state[0].shape)
         prev_a_r = []
         if self.model_config["lstm_use_prev_action"]:
             prev_a = one_hot(input_dict[SampleBatch.PREV_ACTIONS].float(),
@@ -191,7 +189,7 @@ class AsymModel(TorchRNN, nn.Module):
                 input_dict["obs"]["obj_"+str(i)+"_state"].float()) for i in range(self.n_obj)], -1)
 
         z_vf = torch.cat((x_vf, y_vf, t_vf), -1)
-        z_vf = z_vf.view(-1, 2+self.n_obj, 256)
+        z_vf = z_vf.view(-1, 2 + self.n_obj, 256)
         z_vf = self.sum_vf(z_vf)
         z_vf = torch.squeeze(z_vf, dim=1)
         if prev_a_r:

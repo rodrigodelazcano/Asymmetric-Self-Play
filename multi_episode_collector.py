@@ -83,6 +83,7 @@ class MultiEpisodeCollector(SimpleListCollector):
             policy = self.policy_map[pid]
             pre_batch = collector.build(policy.view_requirements)
             pre_batches[agent_id] = (policy, pre_batch)
+
         # Apply reward clipping before calling postprocessing functions.
         if self.clip_rewards is True:
             for _, (_, pre_batch) in pre_batches.items():
@@ -166,7 +167,7 @@ class MultiEpisodeCollector(SimpleListCollector):
                 assert pid in self.policy_map
                 policy_collector_group[
                     pid] = _PolicyCollector(policy)
-
+            
             policy_collector_group.policy_collectors[
                 pid].add_postprocessed_batch_for_training(
                     post_batch, policy.view_requirements)
@@ -175,7 +176,6 @@ class MultiEpisodeCollector(SimpleListCollector):
                 del self.agent_collectors[agent_key]
 
         if relable_demonstration:
-            print('RELABLING ALICE TRAJECTORY')
             alice_post_batch = policy_collector_group.policy_collectors["alice_policy"].batches[-1].copy()
             alice_observation_space = self.policy_map["alice_policy"].observation_space
             bob_bc_post_batch = self.policy_map["bob_policy"].relable_demonstration(alice_post_batch, alice_observation_space)
@@ -200,6 +200,5 @@ class MultiEpisodeCollector(SimpleListCollector):
 
         # Build a MultiAgentBatch from the episode and return.
         if build and build_next_batch:
-            print('BUILDING A NEXT BATCH')
             return self._build_multi_agent_batch(episode)
     
