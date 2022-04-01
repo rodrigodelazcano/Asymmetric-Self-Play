@@ -104,7 +104,7 @@ config = {
     "env": "asym_self_play",
     "num_workers": 1,
     "num_envs_per_worker": 1,
-    "num_gpus": 1,
+    # "num_gpus": 1,
     "rollout_fragment_length": 4096,
     "batch_mode": "complete_episodes",
     "framework": "torch",
