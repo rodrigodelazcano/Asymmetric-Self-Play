@@ -144,6 +144,6 @@ def run_tune():
 
 
 if __name__ == "__main__":
-    ray.init()
+    ray.init(address='auto', _redis_password='5241590000000000')
     results = run_tune() 
     ray.shutdown()
