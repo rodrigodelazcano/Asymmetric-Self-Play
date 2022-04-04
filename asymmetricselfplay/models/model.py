@@ -57,7 +57,13 @@ class SumLayer(nn.Module):
 
     def forward(self, x: TensorType) -> TensorType:
         return self._model(x)
+
+class MLP(nn.Module):
+    def __init__(self):
+        super(MLP, self).__init__()
         
+    def forward(self, x: TensorType) -> TensorType:
+        return self._model(x)
 class AsymModel(TorchRNN, nn.Module):
  
     def __init__(self, obs_space: gym.spaces.Space,

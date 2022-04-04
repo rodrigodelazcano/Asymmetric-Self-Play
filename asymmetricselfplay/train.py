@@ -71,19 +71,20 @@ def get_rllib_configs():
                     "number_of_objects": args.num_objects,
                     "num_model_outputs": 256,
                     "dict_obs_space": observation_spaces[agent],
+                    # == MLP ==
+                    
                 },
-                # # == LSTM ==
-                # # Max seq len for training the LSTM, defaults to 20.
+                # == LSTM ==
+                # Max seq len for training the LSTM, defaults to 20.
                 "max_seq_len": 20,
-                # # Size of the LSTM cell.
+                # Size of the LSTM cell.
                 "lstm_cell_size": 256,
-                # # Whether to feed a_{t-1} to LSTM (one-hot encoded if discrete).
+                # Whether to feed a_{t-1} to LSTM (one-hot encoded if discrete).
                 "lstm_use_prev_action": True,
-                # # Whether to feed r_{t-1} to LSTM.
+                # Whether to feed r_{t-1} to LSTM.
                 "lstm_use_prev_reward": True if agent == "alice" else False,
-                # # Whether the LSTM is time-major (TxBx..) or batch-major (BxTx..).
+                # Whether the LSTM is time-major (TxBx..) or batch-major (BxTx..).
                 "_time_major": False,
-                # "_disable_preprocessor_api": True,
             },
 
             "gamma": 0.998,
