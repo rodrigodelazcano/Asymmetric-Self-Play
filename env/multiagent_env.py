@@ -87,21 +87,16 @@ class AsymMultiAgent(MultiAgentEnv):
         for agent, action in action_dict.items():
             obs, reward, done, info = self.envs[agent].step(action)
 
-            if agent == 'bob':
-                print('REWARD FOR BOB: ', reward)
             if not done:
                 info_d = {agent: {"build_next_batch": False}}
                 rew_d[agent] = reward
                 obs_d[agent] = self._generate_observation_dictionary(obs, agent)
 
             elif agent == "alice" and done:
-                print('ALICE DONE')
                 # If the final goal set by alice is invalid (any object off the table, 
                 # or no object has been moved), end complete episode
                 # Do not perform Behavioral Cloning
-                print('GOAL SETTING: ', self.goal_setting)
                 if info["valid_goal"]:
-                    print('ALICE SET VALID GOAL')
                     self.goal_setting += 1
                     reward += 1.0
                     # If Bob has solved previous goal it is not done.
@@ -140,7 +135,6 @@ class AsymMultiAgent(MultiAgentEnv):
                             self.goal_setting = 0
                             self.bob_done = False
                 else:
-                    print('ALICE DID NOT SET A VALID GOAL')
                     info_d = {agent: {"build_next_batch": True, "bob_is_done": False}}
                     info_d[agent].update(info)
                     rew_d[agent] = reward
@@ -153,7 +147,6 @@ class AsymMultiAgent(MultiAgentEnv):
 
             # Bob's trajectory is done
             elif agent == "bob" and done:
-                print('BOB DONE')
                 info_d = {agent: {"build_next_batch": False}}
                 info_d[agent].update(info)
                 obs_d[agent] = self._generate_observation_dictionary(obs, agent)
@@ -169,7 +162,6 @@ class AsymMultiAgent(MultiAgentEnv):
                 # Bob was not able to solve the goal
                 if not obs['is_goal_achieved'][0]:
                     rew_d["alice"] += 5
-                    print('BOB DID NOT ACHIEVE GOAL')
                     self.bob_done = True
                 
                 if self.goal_setting >= 5:
@@ -179,7 +171,6 @@ class AsymMultiAgent(MultiAgentEnv):
 
                 if info_d[agent]["build_next_batch"]:
                     self.goal_setting = 0
-                    print('BUILDING NEXT BATCH!!!!!')
                     self.bob_done = False
 
         return obs_d, rew_d, self.done_d, info_d

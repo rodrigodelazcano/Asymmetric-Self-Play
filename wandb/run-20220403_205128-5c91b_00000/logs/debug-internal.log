@@ -1,0 +1,41 @@
+2022-04-03 20:51:28,950 INFO    MainThread:40042 [internal.py:wandb_internal():92] W&B internal server running at pid: 40042, started at: 2022-04-03 20:51:28.948440
+2022-04-03 20:51:28,952 DEBUG   SenderThread:40042 [sender.py:send():235] send: header
+2022-04-03 20:51:28,953 DEBUG   SenderThread:40042 [sender.py:send():235] send: run
+2022-04-03 20:51:28,952 INFO    WriterThread:40042 [datastore.py:open_for_write():77] open: /home/rodri/Asymmetric-Self-Play-main/wandb/run-20220403_205128-5c91b_00000/run-5c91b_00000.wandb
+2022-04-03 20:51:28,960 INFO    SenderThread:40042 [sender.py:_maybe_setup_resume():492] checking resume status for None/AsymmetricSelfPlay/5c91b_00000
+2022-04-03 20:51:29,574 INFO    SenderThread:40042 [dir_watcher.py:__init__():169] watching files in: /home/rodri/Asymmetric-Self-Play-main/wandb/run-20220403_205128-5c91b_00000/files
+2022-04-03 20:51:29,575 INFO    SenderThread:40042 [sender.py:_start_run_threads():812] run started: 5c91b_00000 with start time 1649033488
+2022-04-03 20:51:29,580 DEBUG   SenderThread:40042 [sender.py:send():235] send: summary
+2022-04-03 20:51:29,580 INFO    SenderThread:40042 [sender.py:_save_file():947] saving file wandb-summary.json with policy end
+2022-04-03 20:51:29,581 DEBUG   HandlerThread:40042 [handler.py:handle_request():141] handle_request: check_version
+2022-04-03 20:51:29,581 DEBUG   SenderThread:40042 [sender.py:send_request():249] send_request: check_version
+2022-04-03 20:51:29,645 DEBUG   HandlerThread:40042 [handler.py:handle_request():141] handle_request: run_start
+2022-04-03 20:51:29,647 DEBUG   HandlerThread:40042 [meta.py:__init__():37] meta init
+2022-04-03 20:51:29,647 DEBUG   HandlerThread:40042 [meta.py:__init__():51] meta init done
+2022-04-03 20:51:29,648 DEBUG   HandlerThread:40042 [meta.py:probe():211] probe
+2022-04-03 20:51:29,653 DEBUG   HandlerThread:40042 [git.py:repo():33] git repository is invalid
+2022-04-03 20:51:29,653 DEBUG   HandlerThread:40042 [meta.py:_save_pip():55] save pip
+2022-04-03 20:51:29,654 DEBUG   HandlerThread:40042 [meta.py:_save_pip():69] save pip done
+2022-04-03 20:51:29,654 DEBUG   HandlerThread:40042 [meta.py:_save_conda():76] save conda
+2022-04-03 20:51:30,576 INFO    Thread-14 :40042 [dir_watcher.py:_on_file_created():217] file/dir created: /home/rodri/Asymmetric-Self-Play-main/wandb/run-20220403_205128-5c91b_00000/files/requirements.txt
+2022-04-03 20:51:30,577 INFO    Thread-14 :40042 [dir_watcher.py:_on_file_created():217] file/dir created: /home/rodri/Asymmetric-Self-Play-main/wandb/run-20220403_205128-5c91b_00000/files/wandb-summary.json
+2022-04-03 20:51:30,577 INFO    Thread-14 :40042 [dir_watcher.py:_on_file_created():217] file/dir created: /home/rodri/Asymmetric-Self-Play-main/wandb/run-20220403_205128-5c91b_00000/files/conda-environment.yaml
+2022-04-03 20:51:31,426 DEBUG   HandlerThread:40042 [meta.py:_save_conda():86] save conda done
+2022-04-03 20:51:31,426 DEBUG   HandlerThread:40042 [meta.py:probe():249] probe done
+2022-04-03 20:51:31,429 DEBUG   SenderThread:40042 [sender.py:send():235] send: files
+2022-04-03 20:51:31,429 INFO    SenderThread:40042 [sender.py:_save_file():947] saving file wandb-metadata.json with policy now
+2022-04-03 20:51:31,433 DEBUG   HandlerThread:40042 [handler.py:handle_request():141] handle_request: stop_status
+2022-04-03 20:51:31,433 DEBUG   SenderThread:40042 [sender.py:send_request():249] send_request: stop_status
+2022-04-03 20:51:31,516 DEBUG   SenderThread:40042 [sender.py:send():235] send: telemetry
+2022-04-03 20:51:31,575 INFO    Thread-14 :40042 [dir_watcher.py:_on_file_modified():230] file/dir modified: /home/rodri/Asymmetric-Self-Play-main/wandb/run-20220403_205128-5c91b_00000/files/conda-environment.yaml
+2022-04-03 20:51:31,576 INFO    Thread-14 :40042 [dir_watcher.py:_on_file_created():217] file/dir created: /home/rodri/Asymmetric-Self-Play-main/wandb/run-20220403_205128-5c91b_00000/files/output.log
+2022-04-03 20:51:31,576 INFO    Thread-14 :40042 [dir_watcher.py:_on_file_created():217] file/dir created: /home/rodri/Asymmetric-Self-Play-main/wandb/run-20220403_205128-5c91b_00000/files/wandb-metadata.json
+2022-04-03 20:51:32,137 INFO    Thread-18 :40042 [upload_job.py:push():137] Uploaded file /tmp/tmpil4irwqbwandb/26l58dqk-wandb-metadata.json
+2022-04-03 20:51:46,517 DEBUG   HandlerThread:40042 [handler.py:handle_request():141] handle_request: stop_status
+2022-04-03 20:51:46,517 DEBUG   SenderThread:40042 [sender.py:send_request():249] send_request: stop_status
+2022-04-03 20:51:54,923 WARNING MainThread:40042 [internal.py:wandb_internal():155] Internal process interrupt: 1
+2022-04-03 20:51:55,423 WARNING MainThread:40042 [internal.py:wandb_internal():155] Internal process interrupt: 2
+2022-04-03 20:51:55,424 ERROR   MainThread:40042 [internal.py:wandb_internal():158] Internal process interrupted.
+2022-04-03 20:51:55,438 INFO    WriterThread:40042 [datastore.py:close():281] close: /home/rodri/Asymmetric-Self-Play-main/wandb/run-20220403_205128-5c91b_00000/run-5c91b_00000.wandb
+2022-04-03 20:51:55,596 INFO    SenderThread:40042 [sender.py:finish():1078] shutting down sender
+2022-04-03 20:51:55,596 INFO    SenderThread:40042 [dir_watcher.py:finish():283] shutting down directory watcher

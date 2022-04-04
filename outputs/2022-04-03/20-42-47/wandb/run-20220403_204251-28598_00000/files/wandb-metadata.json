@@ -1,0 +1,19 @@
+{
+    "os": "Linux-5.14.0-1031-oem-x86_64-with-glibc2.17",
+    "python": "3.8.12",
+    "heartbeatAt": "2022-04-04T00:42:52.181374",
+    "startedAt": "2022-04-04T00:42:51.903854",
+    "docker": null,
+    "gpu": "Quadro T1000 with Max-Q Design",
+    "gpu_count": 1,
+    "cpu_count": 12,
+    "cuda": null,
+    "args": [
+        "num_objects=2"
+    ],
+    "state": "running",
+    "program": "trainer.py",
+    "host": "lapt",
+    "username": "rodri",
+    "executable": "/home/rodri/anaconda3/envs/asym/bin/python"
+}

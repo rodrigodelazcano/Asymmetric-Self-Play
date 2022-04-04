@@ -1,0 +1,148 @@
+2022-04-03 20:54:19,225 INFO    MainThread:42991 [internal.py:wandb_internal():92] W&B internal server running at pid: 42991, started at: 2022-04-03 20:54:19.223170
+2022-04-03 20:54:19,227 INFO    WriterThread:42991 [datastore.py:open_for_write():77] open: /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/run-c2107_00000.wandb
+2022-04-03 20:54:19,228 DEBUG   SenderThread:42991 [sender.py:send():235] send: header
+2022-04-03 20:54:19,228 DEBUG   SenderThread:42991 [sender.py:send():235] send: run
+2022-04-03 20:54:19,235 INFO    SenderThread:42991 [sender.py:_maybe_setup_resume():492] checking resume status for None/AsymmetricSelfPlay/c2107_00000
+2022-04-03 20:54:19,494 INFO    SenderThread:42991 [dir_watcher.py:__init__():169] watching files in: /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/files
+2022-04-03 20:54:19,494 INFO    SenderThread:42991 [sender.py:_start_run_threads():812] run started: c2107_00000 with start time 1649033659
+2022-04-03 20:54:19,496 DEBUG   SenderThread:42991 [sender.py:send():235] send: summary
+2022-04-03 20:54:19,497 INFO    SenderThread:42991 [sender.py:_save_file():947] saving file wandb-summary.json with policy end
+2022-04-03 20:54:19,497 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: check_version
+2022-04-03 20:54:19,497 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: check_version
+2022-04-03 20:54:19,571 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: run_start
+2022-04-03 20:54:19,574 DEBUG   HandlerThread:42991 [meta.py:__init__():37] meta init
+2022-04-03 20:54:19,574 DEBUG   HandlerThread:42991 [meta.py:__init__():51] meta init done
+2022-04-03 20:54:19,574 DEBUG   HandlerThread:42991 [meta.py:probe():211] probe
+2022-04-03 20:54:19,579 DEBUG   HandlerThread:42991 [git.py:repo():33] git repository is invalid
+2022-04-03 20:54:19,579 DEBUG   HandlerThread:42991 [meta.py:_save_pip():55] save pip
+2022-04-03 20:54:19,580 DEBUG   HandlerThread:42991 [meta.py:_save_pip():69] save pip done
+2022-04-03 20:54:19,580 DEBUG   HandlerThread:42991 [meta.py:_save_conda():76] save conda
+2022-04-03 20:54:20,495 INFO    Thread-14 :42991 [dir_watcher.py:_on_file_created():217] file/dir created: /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/files/requirements.txt
+2022-04-03 20:54:20,496 INFO    Thread-14 :42991 [dir_watcher.py:_on_file_created():217] file/dir created: /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/files/wandb-summary.json
+2022-04-03 20:54:20,496 INFO    Thread-14 :42991 [dir_watcher.py:_on_file_created():217] file/dir created: /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/files/conda-environment.yaml
+2022-04-03 20:54:21,229 DEBUG   HandlerThread:42991 [meta.py:_save_conda():86] save conda done
+2022-04-03 20:54:21,229 DEBUG   HandlerThread:42991 [meta.py:probe():249] probe done
+2022-04-03 20:54:21,232 DEBUG   SenderThread:42991 [sender.py:send():235] send: files
+2022-04-03 20:54:21,232 INFO    SenderThread:42991 [sender.py:_save_file():947] saving file wandb-metadata.json with policy now
+2022-04-03 20:54:21,235 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: stop_status
+2022-04-03 20:54:21,236 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: stop_status
+2022-04-03 20:54:21,239 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: partial_history
+2022-04-03 20:54:21,312 DEBUG   SenderThread:42991 [sender.py:send():235] send: telemetry
+2022-04-03 20:54:21,313 DEBUG   SenderThread:42991 [sender.py:send():235] send: telemetry
+2022-04-03 20:54:21,313 DEBUG   SenderThread:42991 [sender.py:send():235] send: telemetry
+2022-04-03 20:54:21,495 INFO    Thread-14 :42991 [dir_watcher.py:_on_file_modified():230] file/dir modified: /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/files/conda-environment.yaml
+2022-04-03 20:54:21,495 INFO    Thread-14 :42991 [dir_watcher.py:_on_file_created():217] file/dir created: /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/files/output.log
+2022-04-03 20:54:21,495 INFO    Thread-14 :42991 [dir_watcher.py:_on_file_created():217] file/dir created: /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/files/wandb-metadata.json
+2022-04-03 20:54:21,650 INFO    Thread-18 :42991 [upload_job.py:push():137] Uploaded file /tmp/tmpag_6d73nwandb/21e2fe99-wandb-metadata.json
+2022-04-03 20:54:23,743 DEBUG   SenderThread:42991 [sender.py:send():235] send: exit
+2022-04-03 20:54:23,743 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: poll_exit
+2022-04-03 20:54:23,744 INFO    SenderThread:42991 [sender.py:send_exit():371] handling exit code: 0
+2022-04-03 20:54:23,745 INFO    SenderThread:42991 [sender.py:send_exit():373] handling runtime: 4
+2022-04-03 20:54:23,750 INFO    SenderThread:42991 [sender.py:_save_file():947] saving file wandb-summary.json with policy end
+2022-04-03 20:54:23,751 INFO    SenderThread:42991 [sender.py:send_exit():379] send defer
+2022-04-03 20:54:23,751 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: poll_exit
+2022-04-03 20:54:23,752 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: defer
+2022-04-03 20:54:23,753 INFO    HandlerThread:42991 [handler.py:handle_request_defer():164] handle defer: 0
+2022-04-03 20:54:23,753 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: defer
+2022-04-03 20:54:23,753 INFO    SenderThread:42991 [sender.py:send_request_defer():388] handle sender defer: 0
+2022-04-03 20:54:23,754 INFO    SenderThread:42991 [sender.py:transition_state():392] send defer: 1
+2022-04-03 20:54:23,754 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: defer
+2022-04-03 20:54:23,754 INFO    HandlerThread:42991 [handler.py:handle_request_defer():164] handle defer: 1
+2022-04-03 20:54:23,891 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: poll_exit
+2022-04-03 20:54:23,892 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: defer
+2022-04-03 20:54:23,892 INFO    SenderThread:42991 [sender.py:send_request_defer():388] handle sender defer: 1
+2022-04-03 20:54:23,893 INFO    SenderThread:42991 [sender.py:transition_state():392] send defer: 2
+2022-04-03 20:54:23,893 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: poll_exit
+2022-04-03 20:54:23,893 DEBUG   SenderThread:42991 [sender.py:send():235] send: stats
+2022-04-03 20:54:23,894 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: defer
+2022-04-03 20:54:23,894 INFO    HandlerThread:42991 [handler.py:handle_request_defer():164] handle defer: 2
+2022-04-03 20:54:23,895 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: defer
+2022-04-03 20:54:23,895 INFO    SenderThread:42991 [sender.py:send_request_defer():388] handle sender defer: 2
+2022-04-03 20:54:23,895 INFO    SenderThread:42991 [sender.py:transition_state():392] send defer: 3
+2022-04-03 20:54:23,896 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: defer
+2022-04-03 20:54:23,896 INFO    HandlerThread:42991 [handler.py:handle_request_defer():164] handle defer: 3
+2022-04-03 20:54:23,896 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: defer
+2022-04-03 20:54:23,896 INFO    SenderThread:42991 [sender.py:send_request_defer():388] handle sender defer: 3
+2022-04-03 20:54:23,896 INFO    SenderThread:42991 [sender.py:transition_state():392] send defer: 4
+2022-04-03 20:54:23,897 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: defer
+2022-04-03 20:54:23,897 INFO    HandlerThread:42991 [handler.py:handle_request_defer():164] handle defer: 4
+2022-04-03 20:54:23,897 DEBUG   SenderThread:42991 [sender.py:send():235] send: summary
+2022-04-03 20:54:23,898 INFO    SenderThread:42991 [sender.py:_save_file():947] saving file wandb-summary.json with policy end
+2022-04-03 20:54:23,898 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: defer
+2022-04-03 20:54:23,898 INFO    SenderThread:42991 [sender.py:send_request_defer():388] handle sender defer: 4
+2022-04-03 20:54:23,898 INFO    SenderThread:42991 [sender.py:transition_state():392] send defer: 5
+2022-04-03 20:54:23,899 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: defer
+2022-04-03 20:54:23,899 INFO    HandlerThread:42991 [handler.py:handle_request_defer():164] handle defer: 5
+2022-04-03 20:54:23,899 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: defer
+2022-04-03 20:54:23,899 INFO    SenderThread:42991 [sender.py:send_request_defer():388] handle sender defer: 5
+2022-04-03 20:54:23,996 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: poll_exit
+2022-04-03 20:54:24,056 INFO    SenderThread:42991 [sender.py:transition_state():392] send defer: 6
+2022-04-03 20:54:24,057 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: poll_exit
+2022-04-03 20:54:24,058 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: defer
+2022-04-03 20:54:24,058 INFO    HandlerThread:42991 [handler.py:handle_request_defer():164] handle defer: 6
+2022-04-03 20:54:24,059 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: defer
+2022-04-03 20:54:24,059 INFO    SenderThread:42991 [sender.py:send_request_defer():388] handle sender defer: 6
+2022-04-03 20:54:24,059 INFO    SenderThread:42991 [dir_watcher.py:finish():283] shutting down directory watcher
+2022-04-03 20:54:24,160 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: poll_exit
+2022-04-03 20:54:24,497 INFO    Thread-14 :42991 [dir_watcher.py:_on_file_modified():230] file/dir modified: /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/files/wandb-summary.json
+2022-04-03 20:54:24,498 INFO    SenderThread:42991 [dir_watcher.py:_on_file_modified():230] file/dir modified: /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/files/config.yaml
+2022-04-03 20:54:24,499 INFO    SenderThread:42991 [dir_watcher.py:finish():313] scan: /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/files
+2022-04-03 20:54:24,499 INFO    SenderThread:42991 [dir_watcher.py:finish():327] scan save: /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/files/conda-environment.yaml conda-environment.yaml
+2022-04-03 20:54:24,499 INFO    SenderThread:42991 [dir_watcher.py:finish():327] scan save: /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/files/wandb-metadata.json wandb-metadata.json
+2022-04-03 20:54:24,500 INFO    SenderThread:42991 [dir_watcher.py:finish():327] scan save: /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/files/wandb-summary.json wandb-summary.json
+2022-04-03 20:54:24,509 INFO    SenderThread:42991 [dir_watcher.py:finish():327] scan save: /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/files/requirements.txt requirements.txt
+2022-04-03 20:54:24,516 INFO    SenderThread:42991 [dir_watcher.py:finish():327] scan save: /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/files/config.yaml config.yaml
+2022-04-03 20:54:24,516 INFO    SenderThread:42991 [dir_watcher.py:finish():327] scan save: /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/files/output.log output.log
+2022-04-03 20:54:24,516 INFO    SenderThread:42991 [sender.py:transition_state():392] send defer: 7
+2022-04-03 20:54:24,516 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: poll_exit
+2022-04-03 20:54:24,522 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: defer
+2022-04-03 20:54:24,522 INFO    HandlerThread:42991 [handler.py:handle_request_defer():164] handle defer: 7
+2022-04-03 20:54:24,522 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: defer
+2022-04-03 20:54:24,523 INFO    SenderThread:42991 [sender.py:send_request_defer():388] handle sender defer: 7
+2022-04-03 20:54:24,523 INFO    SenderThread:42991 [file_pusher.py:finish():145] shutting down file pusher
+2022-04-03 20:54:24,624 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: poll_exit
+2022-04-03 20:54:24,626 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: poll_exit
+2022-04-03 20:54:24,744 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: poll_exit
+2022-04-03 20:54:24,745 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: poll_exit
+2022-04-03 20:54:24,847 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: poll_exit
+2022-04-03 20:54:24,848 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: poll_exit
+2022-04-03 20:54:24,951 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: poll_exit
+2022-04-03 20:54:24,951 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: poll_exit
+2022-04-03 20:54:24,991 INFO    Thread-19 :42991 [upload_job.py:push():137] Uploaded file /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/files/conda-environment.yaml
+2022-04-03 20:54:24,994 INFO    Thread-22 :42991 [upload_job.py:push():137] Uploaded file /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/files/config.yaml
+2022-04-03 20:54:24,997 INFO    Thread-20 :42991 [upload_job.py:push():137] Uploaded file /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/files/wandb-summary.json
+2022-04-03 20:54:25,000 INFO    Thread-21 :42991 [upload_job.py:push():137] Uploaded file /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/files/requirements.txt
+2022-04-03 20:54:25,054 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: poll_exit
+2022-04-03 20:54:25,055 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: poll_exit
+2022-04-03 20:54:25,158 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: poll_exit
+2022-04-03 20:54:25,158 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: poll_exit
+2022-04-03 20:54:25,202 INFO    Thread-13 :42991 [sender.py:transition_state():392] send defer: 8
+2022-04-03 20:54:25,203 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: defer
+2022-04-03 20:54:25,203 INFO    HandlerThread:42991 [handler.py:handle_request_defer():164] handle defer: 8
+2022-04-03 20:54:25,204 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: defer
+2022-04-03 20:54:25,204 INFO    SenderThread:42991 [sender.py:send_request_defer():388] handle sender defer: 8
+2022-04-03 20:54:25,261 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: poll_exit
+2022-04-03 20:54:25,418 INFO    SenderThread:42991 [sender.py:transition_state():392] send defer: 9
+2022-04-03 20:54:25,419 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: poll_exit
+2022-04-03 20:54:25,420 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: defer
+2022-04-03 20:54:25,420 INFO    HandlerThread:42991 [handler.py:handle_request_defer():164] handle defer: 9
+2022-04-03 20:54:25,421 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: defer
+2022-04-03 20:54:25,421 INFO    SenderThread:42991 [sender.py:send_request_defer():388] handle sender defer: 9
+2022-04-03 20:54:25,422 INFO    SenderThread:42991 [sender.py:transition_state():392] send defer: 10
+2022-04-03 20:54:25,424 DEBUG   SenderThread:42991 [sender.py:send():235] send: final
+2022-04-03 20:54:25,424 DEBUG   SenderThread:42991 [sender.py:send():235] send: footer
+2022-04-03 20:54:25,424 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: defer
+2022-04-03 20:54:25,425 INFO    HandlerThread:42991 [handler.py:handle_request_defer():164] handle defer: 10
+2022-04-03 20:54:25,425 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: defer
+2022-04-03 20:54:25,426 INFO    SenderThread:42991 [sender.py:send_request_defer():388] handle sender defer: 10
+2022-04-03 20:54:25,522 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: poll_exit
+2022-04-03 20:54:25,523 DEBUG   SenderThread:42991 [sender.py:send_request():249] send_request: poll_exit
+2022-04-03 20:54:25,523 INFO    SenderThread:42991 [file_pusher.py:join():150] waiting for file pusher
+2022-04-03 20:54:25,869 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: sampled_history
+2022-04-03 20:54:25,871 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: get_summary
+2022-04-03 20:54:25,872 DEBUG   HandlerThread:42991 [handler.py:handle_request():141] handle_request: shutdown
+2022-04-03 20:54:25,872 INFO    HandlerThread:42991 [handler.py:finish():778] shutting down handler
+2022-04-03 20:54:26,425 INFO    WriterThread:42991 [datastore.py:close():281] close: /home/rodri/Asymmetric-Self-Play-main/outputs/2022-04-03/20-54-15/wandb/run-20220403_205419-c2107_00000/run-c2107_00000.wandb
+2022-04-03 20:54:26,768 INFO    SenderThread:42991 [sender.py:finish():1078] shutting down sender
+2022-04-03 20:54:26,769 INFO    SenderThread:42991 [file_pusher.py:finish():145] shutting down file pusher
+2022-04-03 20:54:26,769 INFO    SenderThread:42991 [file_pusher.py:join():150] waiting for file pusher

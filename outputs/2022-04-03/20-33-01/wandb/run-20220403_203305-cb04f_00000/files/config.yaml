@@ -1,0 +1,120 @@
+wandb_version: 1
+
+_wandb:
+  desc: null
+  value:
+    cli_version: 0.12.11
+    framework: torch
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    python_version: 3.8.12
+    start_time: 1649032385
+    t:
+      1:
+      - 1
+      - 5
+      - 30
+      - 50
+      2:
+      - 1
+      - 5
+      - 30
+      - 50
+      3:
+      - 2
+      - 13
+      - 14
+      - 16
+      4: 3.8.12
+      5: 0.12.11
+      8:
+      - 6
+      - 9
+batch_mode:
+  desc: null
+  value: complete_episodes
+env:
+  desc: null
+  value: asym_self_play
+framework:
+  desc: null
+  value: torch
+multiagent:
+  desc: null
+  value:
+    policies:
+      alice_policy: "PolicySpec(policy_class=<class 'ray.rllib.agents.ppo.ppo_torch_policy.PPOTorchPolicy'>,\
+        \ observation_space=Dict(gripper_pos:Box([-inf -inf -inf], [inf inf inf],\
+        \ (3,), float32), obj_0_state:Box([-inf -inf -inf -inf -inf -inf -inf -inf\
+        \ -inf -inf -inf -inf -inf -inf\n -inf -inf -inf], [inf inf inf inf inf inf\
+        \ inf inf inf inf inf inf inf inf inf inf inf], (17,), float32), obj_1_state:Box([-inf\
+        \ -inf -inf -inf -inf -inf -inf -inf -inf -inf -inf -inf -inf -inf\n -inf\
+        \ -inf -inf], [inf inf inf inf inf inf inf inf inf inf inf inf inf inf inf\
+        \ inf inf], (17,), float32), robot_joint_pos:Box([-6.5 -6.5 -6.5 -6.5 -6.5\
+        \ -6.5], [6.5 6.5 6.5 6.5 6.5 6.5], (6,), float32)), action_space=MultiDiscrete([11\
+        \ 11 11 11 11 11]), config={'model': {'custom_model': 'asym_torch_model',\
+        \ 'custom_model_config': {'number_of_objects': 2, 'num_model_outputs': 256,\
+        \ 'dict_obs_space': Dict(gripper_pos:Box([-inf -inf -inf], [inf inf inf],\
+        \ (3,), float32), obj_0_state:Box([-inf -inf -inf -inf -inf -inf -inf -inf\
+        \ -inf -inf -inf -inf -inf -inf\n -inf -inf -inf], [inf inf inf inf inf inf\
+        \ inf inf inf inf inf inf inf inf inf inf inf], (17,), float32), obj_1_state:Box([-inf\
+        \ -inf -inf -inf -inf -inf -inf -inf -inf -inf -inf -inf -inf -inf\n -inf\
+        \ -inf -inf], [inf inf inf inf inf inf inf inf inf inf inf inf inf inf inf\
+        \ inf inf], (17,), float32), robot_joint_pos:Box([-6.5 -6.5 -6.5 -6.5 -6.5\
+        \ -6.5], [6.5 6.5 6.5 6.5 6.5 6.5], (6,), float32))}, 'max_seq_len': 20, 'lstm_cell_size':\
+        \ 256, 'lstm_use_prev_action': True, 'lstm_use_prev_reward': True, '_time_major':\
+        \ False}, 'gamma': 0.998, 'lr': 0.0003, 'lambda': 0.95, 'entropy_coeff': 0.01,\
+        \ 'clip_param': 0.2, 'ABC_loss_weight': None})"
+      bob_policy: "PolicySpec(policy_class=<class 'policies.bob_policy.BobTorchPolicy'>,\
+        \ observation_space=Dict(gripper_pos:Box([-inf -inf -inf], [inf inf inf],\
+        \ (3,), float32), obj_0_state:Box([-inf -inf -inf -inf -inf -inf -inf -inf\
+        \ -inf -inf -inf -inf -inf -inf\n -inf -inf -inf -inf -inf -inf -inf -inf\
+        \ -inf -inf -inf -inf -inf -inf\n -inf], [inf inf inf inf inf inf inf inf\
+        \ inf inf inf inf inf inf inf inf inf inf\n inf inf inf inf inf inf inf inf\
+        \ inf inf inf], (29,), float32), obj_1_state:Box([-inf -inf -inf -inf -inf\
+        \ -inf -inf -inf -inf -inf -inf -inf -inf -inf\n -inf -inf -inf -inf -inf\
+        \ -inf -inf -inf -inf -inf -inf -inf -inf -inf\n -inf], [inf inf inf inf inf\
+        \ inf inf inf inf inf inf inf inf inf inf inf inf inf\n inf inf inf inf inf\
+        \ inf inf inf inf inf inf], (29,), float32), robot_joint_pos:Box([-6.5 -6.5\
+        \ -6.5 -6.5 -6.5 -6.5], [6.5 6.5 6.5 6.5 6.5 6.5], (6,), float32)), action_space=MultiDiscrete([11\
+        \ 11 11 11 11 11]), config={'model': {'custom_model': 'asym_torch_model',\
+        \ 'custom_model_config': {'number_of_objects': 2, 'num_model_outputs': 256,\
+        \ 'dict_obs_space': Dict(gripper_pos:Box([-inf -inf -inf], [inf inf inf],\
+        \ (3,), float32), obj_0_state:Box([-inf -inf -inf -inf -inf -inf -inf -inf\
+        \ -inf -inf -inf -inf -inf -inf\n -inf -inf -inf -inf -inf -inf -inf -inf\
+        \ -inf -inf -inf -inf -inf -inf\n -inf], [inf inf inf inf inf inf inf inf\
+        \ inf inf inf inf inf inf inf inf inf inf\n inf inf inf inf inf inf inf inf\
+        \ inf inf inf], (29,), float32), obj_1_state:Box([-inf -inf -inf -inf -inf\
+        \ -inf -inf -inf -inf -inf -inf -inf -inf -inf\n -inf -inf -inf -inf -inf\
+        \ -inf -inf -inf -inf -inf -inf -inf -inf -inf\n -inf], [inf inf inf inf inf\
+        \ inf inf inf inf inf inf inf inf inf inf inf inf inf\n inf inf inf inf inf\
+        \ inf inf inf inf inf inf], (29,), float32), robot_joint_pos:Box([-6.5 -6.5\
+        \ -6.5 -6.5 -6.5 -6.5], [6.5 6.5 6.5 6.5 6.5 6.5], (6,), float32))}, 'max_seq_len':\
+        \ 20, 'lstm_cell_size': 256, 'lstm_use_prev_action': True, 'lstm_use_prev_reward':\
+        \ False, '_time_major': False}, 'gamma': 0.998, 'lr': 0.0003, 'lambda': 0.95,\
+        \ 'entropy_coeff': 0.01, 'clip_param': 0.2, 'ABC_loss_weight': 0.5})"
+    policy_mapping_fn: <function run_tune.<locals>.policy_mapping_fn at 0x7f6990c26820>
+num_envs_per_worker:
+  desc: null
+  value: 1
+num_gpus:
+  desc: null
+  value: 0
+num_sgd_iter:
+  desc: null
+  value: 3
+num_workers:
+  desc: null
+  value: 4
+rollout_fragment_length:
+  desc: null
+  value: 4096
+sample_collector:
+  desc: null
+  value: <class 'multi_episode_collector.MultiEpisodeCollector'>
+sgd_minibatch_size:
+  desc: null
+  value: 128
+train_batch_size:
+  desc: null
+  value: 40960
