@@ -1,6 +1,5 @@
-ray/
-tianshou/
-stable-baselines3/
-spinningup/
-robogym/
-Youtube-Code-Repository/
+.vscode/
+__pycache__/
+wandb/
+outputs/
+*.egg-info/
