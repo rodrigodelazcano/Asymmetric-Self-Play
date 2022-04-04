@@ -1,0 +1,26 @@
+{
+    "os": "Linux-5.14.0-1031-oem-x86_64-with-glibc2.17",
+    "python": "3.8.12",
+    "heartbeatAt": "2022-04-04T03:35:24.623013",
+    "startedAt": "2022-04-04T03:35:23.261758",
+    "docker": null,
+    "gpu": "Quadro T1000 with Max-Q Design",
+    "gpu_count": 1,
+    "cpu_count": 12,
+    "cuda": null,
+    "args": [
+        "--num-workers=1"
+    ],
+    "state": "running",
+    "program": "trainer.py",
+    "codePath": "trainer.py",
+    "git": {
+        "remote": "https://github.com/rodrigodelazcano/Asymmetric-Self-Play.git",
+        "commit": "c8a224608168cc4c5be26772bf2d8c3342caebb4"
+    },
+    "email": "r.l.p.v96@gmail.com",
+    "root": "/home/rodri/Asymmetric-Self-Play",
+    "host": "lapt",
+    "username": "rodri",
+    "executable": "/home/rodri/anaconda3/envs/asym/bin/python"
+}
