@@ -18,7 +18,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--num-objects", type=int, default=2)
 parser.add_argument("--num-workers", type=int, default=4)
 
-
+# == Observation dict keys ==
+# robot_state_keys = ["robot_joint_pos", "gripper_pos"]
+# obj_state_keys = ["obj_pos", "obj_rot", "obj_vel_pos", "obj_vel_rot", "obj_rel_pos", "obj_gripper_contact"]
+# goal_state_keys = ["goal_obj_pos", "goal_obj_rot", "rel_goal_obj_pos", "rel_goal_obj_rot"]
 
 def get_rllib_configs():
     args = parser.parse_args()
@@ -28,10 +31,6 @@ def get_rllib_configs():
                  ))
 
     ModelCatalog.register_custom_model("asym_torch_model", AsymModel)
-
-    robot_state_keys = ["robot_joint_pos", "gripper_pos"]
-    obj_state_keys = ["obj_pos", "obj_rot", "obj_vel_pos", "obj_vel_rot", "obj_rel_pos", "obj_gripper_contact"]
-    goal_state_keys = ["goal_obj_pos", "goal_obj_rot", "rel_goal_obj_pos", "rel_goal_obj_rot"]
 
     observation_spaces = {}
     observation_space_bob = OrderedDict({
@@ -69,10 +68,10 @@ def get_rllib_configs():
                 "custom_model": "asym_torch_model",
                 "custom_model_config": {
                     "number_of_objects": args.num_objects,
-                    "num_model_outputs": 256,
                     "dict_obs_space": observation_spaces[agent],
                     # == MLP ==
-                    
+                    "mlp_hiddens": [256] * 5,
+                    "mlp_activation": "relu",
                 },
                 # == LSTM ==
                 # Max seq len for training the LSTM, defaults to 20.
@@ -100,7 +99,7 @@ def get_rllib_configs():
     config = {
         "env": "asym_self_play",
         "num_workers": args.num_workers,
-        "num_envs_per_worker": 1,
+        "num_envs_per_worker": 5,
         "num_gpus": 0,
         "rollout_fragment_length": 4096,
         "batch_mode": "complete_episodes",
@@ -131,17 +130,17 @@ def get_rllib_configs():
             "timesteps_total": 1000000,
             "episode_reward_mean": 200.0,
         }
-    
+
     return config, stop
+
 def run_tune():
     config, stop = get_rllib_configs()
     tune_analysis = tune.run("PPO", config=config, stop=stop, checkpoint_freq=500, checkpoint_at_end=True, callbacks=[WandbLoggerCallback(
             project="AsymmetricSelfPlay",
             api_key_file="wandb_api_key",
-            log_config=False)])
+            log_config=True)])
     
     return tune_analysis
-
 
 if __name__ == "__main__":
     ray.init()

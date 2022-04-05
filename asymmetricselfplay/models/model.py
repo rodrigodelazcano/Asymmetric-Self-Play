@@ -5,11 +5,10 @@ import gym
 from ray.rllib.utils.typing import TensorType
 from ray.rllib.policy.sample_batch import SampleBatch
 from ray.rllib.models.modelv2 import ModelV2
-from ray.rllib.models.torch.misc import SlimFC
+from ray.rllib.models.torch.misc import SlimFC, normc_initializer
 from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
 from ray.rllib.models.torch.recurrent_net import RecurrentNetwork as TorchRNN
 from ray.rllib.policy.rnn_sequencing import add_time_dimension
-from ray.rllib.models.modelv2 import restore_original_dimensions
 from ray.rllib.policy.view_requirement import ViewRequirement
 from ray.rllib.utils.annotations import override
 from ray.rllib.utils.framework import try_import_torch
@@ -59,9 +58,27 @@ class SumLayer(nn.Module):
         return self._model(x)
 
 class MLP(nn.Module):
-    def __init__(self):
+    def __init__(self,
+                hiddens: List[int],
+                activation_func: str,
+                prev_layer_size: int):
         super(MLP, self).__init__()
+        layers = []
+
+        for size in hiddens:
+            layers.append(
+                SlimFC(
+                    in_size=prev_layer_size,
+                    out_size=size,
+                    initializer=normc_initializer(1.0),
+                    activation_fn=activation_func
+                )
+            )
+            prev_layer_size = size
         
+        self._model = nn.Sequential(*layers)
+
+
     def forward(self, x: TensorType) -> TensorType:
         return self._model(x)
 class AsymModel(TorchRNN, nn.Module):
@@ -80,39 +97,43 @@ class AsymModel(TorchRNN, nn.Module):
         self.use_prev_action = model_config["lstm_use_prev_action"]
         self.use_prev_reward = model_config["lstm_use_prev_reward"]
 
+        self.mlp_hiddens = customized_model_kwargs["mlp_hiddens"]
+        self.mlp_activation = customized_model_kwargs["mlp_activation"]
+
+        self.embedding_size = 256
+
         self.dict_obs_space = customized_model_kwargs["dict_obs_space"]
 
-        # self.num_outputs is the number of nodes coming
-        # from the wrapped (underlying) model of the LSTM. In other words,
-        #  self.num_outputs is the input size for the LSTM layer.
-        self.num_outputs = customized_model_kwargs["num_model_outputs"]
-
         # Add prev-action/reward nodes to input to LSTM.
+        self.mlp_num_outputs = self.mlp_hiddens[-1]
         if self.use_prev_action:
             self.action_dim = np.sum(action_space.nvec)
-            self.num_outputs += self.action_dim
+            self.mlp_num_outputs += self.action_dim
         if self.use_prev_reward:
-            self.num_outputs += 1
+            self.mlp_num_outputs += 1
 
         # Define LSTM for both, PolicyNetwork and ValueFunction
         self.lstm_pol = nn.LSTM(
-            self.num_outputs, self.cell_size, batch_first=not self.time_major
+            self.mlp_num_outputs, self.cell_size, batch_first=not self.time_major
             )
         self.lstm_val = nn.LSTM(
-            self.num_outputs, self.cell_size, batch_first=not self.time_major
+            self.mlp_num_outputs, self.cell_size, batch_first=not self.time_major
             )
         
         # Policy Network
-        self.rob_jt_pos_emb_pol = EmbeddingFC(self.dict_obs_space["robot_joint_pos"].shape[0], 256)
-        self.grip_pos_emb_pol = EmbeddingFC(self.dict_obs_space["gripper_pos"].shape[0], 256)
+        self.rob_jt_pos_emb_pol = EmbeddingFC(self.dict_obs_space["robot_joint_pos"].shape[0], self.embedding_size)
+        self.grip_pos_emb_pol = EmbeddingFC(self.dict_obs_space["gripper_pos"].shape[0], self.embedding_size)
         self.obj_state_emb_pol = nn.ModuleDict()
 
         for i in range(self.n_obj):
             self.obj_state_emb_pol["obj_"+str(i)+"_state"] = \
-                EmbeddingFC(self.dict_obs_space["obj_"+str(i)+"_state"].shape[0], 512, permutation_invariant=True)
+                EmbeddingFC(self.dict_obs_space["obj_"+str(i)+"_state"].shape[0], self.embedding_size*2, permutation_invariant=True)
 
 
         self.sum_pol = SumLayer(in_size=2+self.n_obj)
+        self.mlp_pol = MLP(self.mlp_hiddens,
+                            self.mlp_activation,
+                            self.embedding_size)
         self._logits_branch = SlimFC(
             in_size=self.cell_size,
             out_size=66,
@@ -120,15 +141,18 @@ class AsymModel(TorchRNN, nn.Module):
             initializer=nn.init.xavier_uniform_)
 
         # Value Function Network
-        self.rob_jt_pos_emb_vf = EmbeddingFC(self.dict_obs_space["robot_joint_pos"].shape[0], 256)
-        self.grip_pos_emb_vf = EmbeddingFC(self.dict_obs_space["gripper_pos"].shape[0], 256)
+        self.rob_jt_pos_emb_vf = EmbeddingFC(self.dict_obs_space["robot_joint_pos"].shape[0], self.embedding_size)
+        self.grip_pos_emb_vf = EmbeddingFC(self.dict_obs_space["gripper_pos"].shape[0], self.embedding_size)
         self.obj_state_emb_vf = nn.ModuleDict()
 
         for i in range(self.n_obj):
             self.obj_state_emb_vf["obj_"+str(i)+"_state"] = \
-                EmbeddingFC(self.dict_obs_space["obj_"+str(i)+"_state"].shape[0], 512, permutation_invariant=True)
+                EmbeddingFC(self.dict_obs_space["obj_"+str(i)+"_state"].shape[0], self.embedding_size*2, permutation_invariant=True)
 
         self.sum_vf = SumLayer(in_size = 2 + self.n_obj)
+        self.mlp_vf = MLP(self.mlp_hiddens,
+                            self.mlp_activation,
+                            self.embedding_size)
         self._value_branch = SlimFC(
             in_size=self.cell_size,
             out_size=1,
@@ -148,7 +172,6 @@ class AsymModel(TorchRNN, nn.Module):
                 state: List[TensorType],
                 seq_lens: TensorType) -> (TensorType, List[TensorType]):
         assert seq_lens is not None
-        
         # Concat. prev-action/reward if required.
         prev_a_r = []
         if self.model_config["lstm_use_prev_action"]:
@@ -172,14 +195,14 @@ class AsymModel(TorchRNN, nn.Module):
                 input_dict["obs"]["obj_"+str(i)+"_state"].float()) for i in range(self.n_obj)], -1)          
 
         z = torch.cat((x, y, t), -1)
-        z = z.view(-1, 2+self.n_obj, 256)
+        z = z.view(-1, 2+self.n_obj, self.embedding_size)
         z = self.sum_pol(z)
         z = torch.squeeze(z, dim=1)
+        z = self.mlp_pol(z)
         if prev_a_r:
             z = torch.cat([z] + prev_a_r, dim=1)
 
         inputs_lstm_pol = self._add_time_dimension_to_batch(z, seq_lens)
-
         self._features, [h_pol, c_pol] = self.lstm_pol(
             inputs_lstm_pol, [torch.unsqueeze(state[0], 0),
                               torch.unsqueeze(state[1], 0)]
@@ -194,9 +217,12 @@ class AsymModel(TorchRNN, nn.Module):
                 input_dict["obs"]["obj_"+str(i)+"_state"].float()) for i in range(self.n_obj)], -1)
 
         z_vf = torch.cat((x_vf, y_vf, t_vf), -1)
-        z_vf = z_vf.view(-1, 2 + self.n_obj, 256)
+        z_vf = z_vf.view(-1, 2 + self.n_obj, self.embedding_size)
         z_vf = self.sum_vf(z_vf)
         z_vf = torch.squeeze(z_vf, dim=1)
+
+        z_vf = self.mlp_vf(z_vf)
+
         if prev_a_r:
             z_vf = torch.cat([z_vf] + prev_a_r, dim=1)
         inputs_lstm_val = self._add_time_dimension_to_batch(z_vf, seq_lens)
