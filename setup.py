@@ -11,7 +11,7 @@ def setup_asymmetricselfplay():
         
         ],
         python_requires=">=3.7.4",
-        description="Paper implementation of Asymmetric self-play for automatic goal discovery in robotic manipulation",
+        description="Implementation of Asymmetric self-play for automatic goal discovery in robotic manipulation",
         include_package_data=True,
     )
 

@@ -54,8 +54,12 @@ class AsymSelfPlayCallback(DefaultCallbacks):
             trainer.workers.sync_weights(policies=[alice_prior_pol, bob_prior_pol])
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--alice-num-steps-per-goal", type=int, default=100)
+parser.add_argument("--bob-num-steps-per-goal", type=int, default=200)
 parser.add_argument("--num-objects", type=int, default=2)
 parser.add_argument("--num-workers", type=int, default=1)
+parser.add_argument("--num-envs-per-worker", type=int, default=1)
+parser.add_argument("--num-gpus", type=int, default=0)
 
 # == Observation dict keys ==
 # robot_state_keys = ["robot_joint_pos", "gripper_pos"]
@@ -67,7 +71,9 @@ def get_rllib_configs():
     args = parser.parse_args()
     register_env("asym_self_play",
                  lambda _: AsymMultiAgent(
-                     alice_steps=100, bob_steps=200, n_objects=args.num_objects
+                     alice_steps=args.alice_num_steps_per_goal, 
+                     bob_steps=args.bob_num_steps_per_goal,
+                     n_objects=args.num_objects
                  ))
 
     ModelCatalog.register_custom_model("asym_torch_model", AsymModel)
@@ -160,8 +166,8 @@ def get_rllib_configs():
         "env": "asym_self_play",
         "callbacks": AsymSelfPlayCallback,
         "num_workers": args.num_workers,
-        "num_envs_per_worker": 1,
-        "num_gpus": 0,
+        "num_envs_per_worker": args.num_envs_per_worker,
+        "num_gpus": args.num_gpus,
         "rollout_fragment_length": 400,
         "batch_mode": "complete_episodes",
         "framework": "torch",
