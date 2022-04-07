@@ -15,6 +15,7 @@ from ray import tune
 import ray
 import argparse
 import itertools
+import os
 
 prior_alice_policies_names = ["prior_alice_policy_" + str(i+1) for i in range(4)]
 prior_bob_policies_names = ["prior_bob_policy_" + str(i+1) for i in range(4)]
@@ -54,12 +55,14 @@ class AsymSelfPlayCallback(DefaultCallbacks):
             trainer.workers.sync_weights(policies=[alice_prior_pol, bob_prior_pol])
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--wandb-mode", type=str, default="disabled")
 parser.add_argument("--alice-num-steps-per-goal", type=int, default=100)
 parser.add_argument("--bob-num-steps-per-goal", type=int, default=200)
-parser.add_argument("--num-objects", type=int, default=2)
+parser.add_argument("--num-objects", type=int, default=3)
 parser.add_argument("--num-workers", type=int, default=1)
 parser.add_argument("--num-envs-per-worker", type=int, default=1)
 parser.add_argument("--num-gpus", type=int, default=0)
+parser.add_argument("--rollout-fragment-lenght", type=int, default=5000)
 
 # == Observation dict keys ==
 # robot_state_keys = ["robot_joint_pos", "gripper_pos"]
@@ -69,6 +72,7 @@ parser.add_argument("--num-gpus", type=int, default=0)
 
 def get_rllib_configs():
     args = parser.parse_args()
+    os.environ['WANDB_MODE'] = args.wandb_mode
     register_env("asym_self_play",
                  lambda _: AsymMultiAgent(
                      alice_steps=args.alice_num_steps_per_goal, 
@@ -168,11 +172,11 @@ def get_rllib_configs():
         "num_workers": args.num_workers,
         "num_envs_per_worker": args.num_envs_per_worker,
         "num_gpus": args.num_gpus,
-        "rollout_fragment_length": 400,
+        "rollout_fragment_length": args.rollout_fragment_lenght,
         "batch_mode": "complete_episodes",
         "framework": "torch",
-        "train_batch_size": 400,
-        "sgd_minibatch_size": 60,
+        "train_batch_size": args.rollout_fragment_lenght*args.num_workers*args.num_envs_per_worker,
+        "sgd_minibatch_size": 4096,
         # sample reuse or epochs per training iterations
         "num_sgd_iter": 3,
         "multiagent": {
@@ -186,7 +190,7 @@ def get_rllib_configs():
     stop = {
             "training_iteration": 50000,
             "timesteps_total": 1000000,
-            "episode_reward_mean": 200.0,
+            "episode_reward_mean": 6.0,
         }
 
     return config, stop
@@ -209,11 +213,11 @@ def prior_bob_policy_mapping_fn(agent_id, episode, worker, **kwargs):
        
 def run_tune():
     config, stop = get_rllib_configs()
-    tune_analysis = tune.run("PPO", config=config, stop=stop, checkpoint_freq=500, checkpoint_at_end=True, callbacks=[WandbLoggerCallback(
+    tune_analysis = tune.run("PPO", config=config, stop=stop, checkpoint_freq=10, checkpoint_at_end=True, callbacks=[WandbLoggerCallback(
             project="AsymmetricSelfPlay",
             api_key_file="wandb_api_key",
             log_config=True,
-            mode="disabled")])
+            )])
 
     return tune_analysis
 
