@@ -36,7 +36,6 @@ def prior_bob_policy_mapping_fn(agent_id, episode, worker, **kwargs):
                                     "prior_bob_policy_2", "prior_bob_policy_3", "prior_bob_policy_4"],1,
                                     p=[.8, .1/2, .1/2, .1/2, .1/2])[0]
 
-
 class AsymSelfPlayCallback(DefaultCallbacks):
     def __init__(self):
         super().__init__()
@@ -197,9 +196,6 @@ def get_rllib_configs():
         # sample reuse or epochs per training iterations
         "num_sgd_iter": 3,
         "multiagent": {
-    policies_dict.update(alice_prior_policies)
-    policies_dict.update(bob_prior_policies)
-
             "policies": policies_dict,
             "policy_mapping_fn": policy_mapping_fn,
             "policies_to_train": ["alice_policy", "bob_policy"],
