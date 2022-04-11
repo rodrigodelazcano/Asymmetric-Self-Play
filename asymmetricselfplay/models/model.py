@@ -32,15 +32,16 @@ class EmbeddingFC(nn.Module):
 
         layers = []
         layers.append(nn.Linear(in_size, out_size, bias=use_bias))
-        if permutation_invariant:
-            layers.append(nn.MaxPool1d(kernel_size=2, stride=2))
-            layers.append(nn.LayerNorm(int(out_size/2)))
-        else:
-            layers.append(nn.LayerNorm(out_size))
+        # if permutation_invariant:
+        #     layers.append(nn.MaxPool1d(kernel_size=2, stride=2))
+        #     layers.append(nn.LayerNorm(int(out_size/2)))
+        # else:
+        #     layers.append(nn.LayerNorm(out_size))
 
         self._model = nn.Sequential(*layers)
     
     def forward(self, x: TensorType) -> TensorType:
+ 
         return self._model(x)
 
 class SumLayer(nn.Module):
@@ -120,16 +121,26 @@ class AsymModel(TorchRNN, nn.Module):
             self.mlp_num_outputs, self.cell_size, batch_first=not self.time_major
             )
         
-        # Policy Network
+        ## === Policy Network === 
+        # Embeddings
         self.rob_jt_pos_emb_pol = EmbeddingFC(self.dict_obs_space["robot_joint_pos"].shape[0], self.embedding_size)
         self.grip_pos_emb_pol = EmbeddingFC(self.dict_obs_space["gripper_pos"].shape[0], self.embedding_size)
         self.obj_state_emb_pol = nn.ModuleDict()
 
+        # Layer Norms
+        self.robot_jt_pos_ly_norm_pol = nn.LayerNorm(self.embedding_size)
+        self.grip_pos_ly_norm_pol = nn.LayerNorm(self.embedding_size)
+        self.obj_state_ly_norm_pol = nn.ModuleDict()
+
+        # MaxPool
+        self.maxpool_pol = nn.ModuleDict()
+        
         for i in range(self.n_obj):
             self.obj_state_emb_pol["obj_"+str(i)+"_state"] = \
                 EmbeddingFC(self.dict_obs_space["obj_"+str(i)+"_state"].shape[0], self.embedding_size*2, permutation_invariant=True)
-
-
+            self.obj_state_ly_norm_pol["obj_"+str(i)+"_state"] = nn.LayerNorm(self.embedding_size)
+            self.maxpool_pol["obj_"+str(i)+"_state"] = nn.MaxPool1d(kernel_size=2, stride=2)          
+        
         self.sum_pol = SumLayer(in_size=2+self.n_obj)
         self.mlp_pol = MLP(self.mlp_hiddens,
                             self.mlp_activation,
@@ -140,14 +151,25 @@ class AsymModel(TorchRNN, nn.Module):
             activation_fn=None,
             initializer=nn.init.xavier_uniform_)
 
-        # Value Function Network
+        ## === Value Function Network ===
+        # Embeddings
         self.rob_jt_pos_emb_vf = EmbeddingFC(self.dict_obs_space["robot_joint_pos"].shape[0], self.embedding_size)
         self.grip_pos_emb_vf = EmbeddingFC(self.dict_obs_space["gripper_pos"].shape[0], self.embedding_size)
         self.obj_state_emb_vf = nn.ModuleDict()
 
+        # Layer Norms
+        self.robot_jt_pos_ly_norm_vf = nn.LayerNorm(self.embedding_size)
+        self.grip_pos_ly_norm_vf = nn.LayerNorm(self.embedding_size)
+        self.obj_state_ly_norm_vf = nn.ModuleDict()
+
+        # MaxPool
+        self.maxpool_vf = nn.ModuleDict()
+
         for i in range(self.n_obj):
             self.obj_state_emb_vf["obj_"+str(i)+"_state"] = \
                 EmbeddingFC(self.dict_obs_space["obj_"+str(i)+"_state"].shape[0], self.embedding_size*2, permutation_invariant=True)
+            self.obj_state_ly_norm_vf["obj_"+str(i)+"_state"] = nn.LayerNorm(self.embedding_size)
+            self.maxpool_vf["obj_"+str(i)+"_state"] = nn.MaxPool1d(kernel_size=2, stride=2)
 
         self.sum_vf = SumLayer(in_size = 2 + self.n_obj)
         self.mlp_vf = MLP(self.mlp_hiddens,
@@ -184,15 +206,25 @@ class AsymModel(TorchRNN, nn.Module):
                 torch.reshape(input_dict[SampleBatch.PREV_REWARDS].float(),
                               [-1, 1]))
 
-        # Policy Network
+        ## === Policy Network ===
         robot_joint_pos_obs = input_dict["obs"]["robot_joint_pos"].float()
         gripper_pos_obs = input_dict["obs"]["gripper_pos"].float()
 
         x = self.rob_jt_pos_emb_pol(robot_joint_pos_obs)
         y = self.grip_pos_emb_pol(gripper_pos_obs)
-        t = torch.cat(
-            [self.obj_state_emb_pol["obj_"+str(i)+"_state"](
-                input_dict["obs"]["obj_"+str(i)+"_state"].float()) for i in range(self.n_obj)], -1)          
+
+        x = self.robot_jt_pos_ly_norm_pol(x)
+        y = self.grip_pos_ly_norm_pol(y)
+
+        obj_state_emb_ouput = []
+        for i in range(self.n_obj):
+            emb_out = self.obj_state_emb_pol["obj_"+str(i)+"_state"](
+                input_dict["obs"]["obj_"+str(i)+"_state"].float())
+            emb_out = emb_out.unsqueeze(1)
+            emb_out = self.maxpool_pol["obj_"+str(i)+"_state"](emb_out)
+            emb_out = emb_out.squeeze(1)
+            obj_state_emb_ouput.append(self.obj_state_ly_norm_pol["obj_"+str(i)+"_state"](emb_out))
+        t = torch.cat(obj_state_emb_ouput, -1)          
 
         z = torch.cat((x, y, t), -1)
         z = z.view(-1, 2+self.n_obj, self.embedding_size)
@@ -209,12 +241,22 @@ class AsymModel(TorchRNN, nn.Module):
         )
         logits = self._logits_branch(self._features)
 
-        # Value Function Network
+        ## === Value Function Network ===
         x_vf = self.rob_jt_pos_emb_vf(robot_joint_pos_obs)
         y_vf = self.grip_pos_emb_vf(gripper_pos_obs)
-        t_vf = torch.cat(
-            [self.obj_state_emb_vf["obj_"+str(i)+"_state"](
-                input_dict["obs"]["obj_"+str(i)+"_state"].float()) for i in range(self.n_obj)], -1)
+        x_vf = self.robot_jt_pos_ly_norm_pol(x_vf)
+        y_vf = self.grip_pos_ly_norm_pol(y_vf)
+
+        obj_state_emb_ouput = []
+        for i in range(self.n_obj):
+            emb_out = self.obj_state_emb_vf["obj_"+str(i)+"_state"](
+                input_dict["obs"]["obj_"+str(i)+"_state"].float())
+            emb_out = emb_out.unsqueeze(1)
+            emb_out = self.maxpool_vf["obj_"+str(i)+"_state"](emb_out)
+            emb_out = emb_out.squeeze(1)
+            obj_state_emb_ouput.append(self.obj_state_ly_norm_vf["obj_"+str(i)+"_state"](emb_out))
+            
+        t_vf = torch.cat(obj_state_emb_ouput, -1) 
 
         z_vf = torch.cat((x_vf, y_vf, t_vf), -1)
         z_vf = z_vf.view(-1, 2 + self.n_obj, self.embedding_size)

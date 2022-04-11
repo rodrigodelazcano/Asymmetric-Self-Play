@@ -45,8 +45,4 @@ RUN pip install jsonnet \
     trimesh \
     collision \
     gym==0.21.0 \
-    wandb --upgrade \
-    torch --upgrade
-
-
-
+    wandb --upgrade

@@ -3,3 +3,5 @@ __pycache__/
 wandb/
 outputs/
 *.egg-info/
+.devcontainer/
+workspace.code-workspace
