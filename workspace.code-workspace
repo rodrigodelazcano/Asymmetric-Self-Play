@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../anaconda3/envs/asym/lib/python3.8/site-packages/ray"
+		}
+	],
+	"settings": {}
+}
