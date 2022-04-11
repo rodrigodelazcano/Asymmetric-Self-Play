@@ -4,5 +4,5 @@ wandb/
 outputs/
 *.egg-info/
 .devcontainer/
-workspace.code-workspace/
-wand_api_key
+workspace.code-workspace
+wandb_api_key
