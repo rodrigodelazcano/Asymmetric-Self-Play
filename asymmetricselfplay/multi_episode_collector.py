@@ -144,11 +144,16 @@ class MultiEpisodeCollector(SimpleListCollector):
 
         # Append into policy batches and reset.
         from ray.rllib.evaluation.rollout_worker import get_global_worker
+
+        if relable_demonstration:
+            episode_alice_pid = self.agent_key_to_policy_id[(episode_id, "alice")]
+
         for agent_id, post_batch in sorted(post_batches.items()):
 
             agent_key = (episode_id, agent_id)
             pid = self.agent_key_to_policy_id[agent_key]
             policy = self.policy_map[pid]
+
             self.callbacks.on_postprocess_trajectory(
                 worker=get_global_worker(),
                 episode=episode,
@@ -165,7 +170,7 @@ class MultiEpisodeCollector(SimpleListCollector):
             # to the group.
             if pid not in policy_collector_group.policy_collectors:
                 assert pid in self.policy_map
-                policy_collector_group[
+                policy_collector_group.policy_collectors[
                     pid] = _PolicyCollector(policy)
             
             policy_collector_group.policy_collectors[
@@ -176,8 +181,9 @@ class MultiEpisodeCollector(SimpleListCollector):
                 del self.agent_collectors[agent_key]
 
         if relable_demonstration:
-            alice_post_batch = policy_collector_group.policy_collectors["alice_policy"].batches[-1].copy()
-            alice_observation_space = self.policy_map["alice_policy"].observation_space
+
+            alice_post_batch = policy_collector_group.policy_collectors[episode_alice_pid].batches[-1].copy()
+            alice_observation_space = self.policy_map[episode_alice_pid].observation_space
             bob_bc_post_batch = self.policy_map["bob_policy"].relable_demonstration(alice_post_batch, alice_observation_space)
             policy_collector_group.policy_collectors["bob_policy"].add_postprocessed_batch_for_training(
                 bob_bc_post_batch, self.policy_map["bob_policy"].view_requirements

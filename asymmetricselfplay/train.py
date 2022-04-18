@@ -44,14 +44,12 @@ class AsymSelfPlayCallback(DefaultCallbacks):
         self._bob_prior_pol_iter = itertools.cycle(prior_bob_policies_names)
     
     def on_train_result(self, *, trainer, result, **kwargs):
-
         # Only one agent is allowed to compete against prior versions of its oponent per training iteration
         # Modify policy mapping function for each iteration
         if result["training_iteration"] % 2 == 0:
-            policy_mapping_function = prior_alice_policy_mapping_fn
-        else:
             policy_mapping_function = prior_bob_policy_mapping_fn
-        
+        else:
+            policy_mapping_function = prior_alice_policy_mapping_fn
         def _set(worker):
             worker.set_policy_mapping_fn(policy_mapping_function)
         
@@ -78,7 +76,8 @@ parser.add_argument("--num-objects", type=int, default=2)
 parser.add_argument("--num-workers", type=int, default=1)
 parser.add_argument("--num-envs-per-worker", type=int, default=1)
 parser.add_argument("--num-gpus", type=int, default=0)
-parser.add_argument("--rollout-fragment-lenght", type=int, default=5000)
+parser.add_argument("--rollout-fragment-lenght", type=int, default=500)
+parser.add_argument("--sgd-minibatch-size", type=int, default=100)
 
 # == Observation dict keys ==
 # robot_state_keys = ["robot_joint_pos", "gripper_pos"]
@@ -192,7 +191,7 @@ def get_rllib_configs():
         "batch_mode": "complete_episodes",
         "framework": "torch",
         "train_batch_size": args.rollout_fragment_lenght*args.num_workers*args.num_envs_per_worker,
-        "sgd_minibatch_size": 4096,
+        "sgd_minibatch_size": args.sgd_minibatch_size,
         # sample reuse or epochs per training iterations
         "num_sgd_iter": 3,
         "multiagent": {
