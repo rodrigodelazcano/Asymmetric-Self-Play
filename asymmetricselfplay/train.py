@@ -76,8 +76,8 @@ parser.add_argument("--num-objects", type=int, default=2)
 parser.add_argument("--num-workers", type=int, default=1)
 parser.add_argument("--num-envs-per-worker", type=int, default=1)
 parser.add_argument("--num-gpus", type=int, default=0)
-parser.add_argument("--rollout-fragment-lenght", type=int, default=500)
-parser.add_argument("--sgd-minibatch-size", type=int, default=100)
+parser.add_argument("--rollout-fragment-lenght", type=int, default=5000)
+parser.add_argument("--sgd-minibatch-size", type=int, default=4096)
 
 # == Observation dict keys ==
 # robot_state_keys = ["robot_joint_pos", "gripper_pos"]
@@ -205,7 +205,7 @@ def get_rllib_configs():
     stop = {
             "training_iteration": 50000,
             "timesteps_total": 1000000,
-            "episode_reward_mean": 6.0,
+            "episode_reward_mean": 7.0,
         }
 
     return config, stop
