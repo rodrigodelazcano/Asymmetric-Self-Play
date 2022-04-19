@@ -1,5 +1,5 @@
-FROM rayproject/ray-ml:latest-gpu
-
+FROM rayproject/ray-ml:1.12.1-py38-gpu
+ 
 RUN sudo apt-get update -q \
     && sudo DEBIAN_FRONTEND=noninteractive apt-get install -y \
     apt-utils \

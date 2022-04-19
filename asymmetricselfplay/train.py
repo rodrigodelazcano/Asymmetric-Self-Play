@@ -76,8 +76,9 @@ parser.add_argument("--num-objects", type=int, default=2)
 parser.add_argument("--num-workers", type=int, default=1)
 parser.add_argument("--num-envs-per-worker", type=int, default=1)
 parser.add_argument("--num-gpus", type=int, default=0)
-parser.add_argument("--rollout-fragment-lenght", type=int, default=5000)
+# parser.add_argument("--rollout-fragment-length", type=int, default=5000)
 parser.add_argument("--sgd-minibatch-size", type=int, default=4096)
+parser.add_argument('--train-batch-size', type=int, default=409600)
 
 # == Observation dict keys ==
 # robot_state_keys = ["robot_joint_pos", "gripper_pos"]
@@ -187,10 +188,10 @@ def get_rllib_configs():
         "num_workers": args.num_workers,
         "num_envs_per_worker": args.num_envs_per_worker,
         "num_gpus": args.num_gpus,
-        "rollout_fragment_length": args.rollout_fragment_lenght,
+        "rollout_fragment_length": args.train_batch_size/(args.num_workers*args.num_envs_per_worker),
         "batch_mode": "complete_episodes",
         "framework": "torch",
-        "train_batch_size": args.rollout_fragment_lenght*args.num_workers*args.num_envs_per_worker,
+        "train_batch_size": args.train_batch_size,
         "sgd_minibatch_size": args.sgd_minibatch_size,
         # sample reuse or epochs per training iterations
         "num_sgd_iter": 3,
